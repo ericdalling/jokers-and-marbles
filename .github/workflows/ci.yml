@@ -29,6 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen
+      - name: Generate app branding assets
+        run: |
+          python3 -m venv "$RUNNER_TEMP/branding-venv"
+          "$RUNNER_TEMP/branding-venv/bin/pip" install Pillow==11.3.0
+          "$RUNNER_TEMP/branding-venv/bin/python" scripts/generate_branding.py
       - run: xcodegen generate
       - name: Build unsigned simulator app
         env:
