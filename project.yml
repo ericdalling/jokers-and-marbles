@@ -1,0 +1,45 @@
+name: JokersAndMarbles
+options:
+  deploymentTarget:
+    iOS: "17.0"
+    tvOS: "17.0"
+packages:
+  GameCore:
+    path: .
+targets:
+  JokersController:
+    type: application
+    platform: iOS
+    sources: [Apps/Controller]
+    dependencies:
+      - package: GameCore
+        product: GameCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ericdalling.jokersandmarbles.controller
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+  JokersTV:
+    type: application
+    platform: tvOS
+    sources: [Apps/TV]
+    dependencies:
+      - package: GameCore
+        product: GameCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ericdalling.jokersandmarbles.tv
+        GENERATE_INFOPLIST_FILE: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+schemes:
+  JokersController:
+    build:
+      targets:
+        JokersController: all
+  JokersTV:
+    build:
+      targets:
+        JokersTV: all
