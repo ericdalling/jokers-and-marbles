@@ -18,4 +18,6 @@ Related: #2, #4, #9, #11.
 All ten regular polygon visual previews (3 through 12 players) are approved. Each uses the unchanged canonical SVG, with preview transform rotate(i * 360/N) translate(-634, -485/tan(pi/N)-128) in original SVG units. Uniform whole-board scaling is allowed. This is the approved visual assembly baseline, not proof of connector fit. Track count = 17*N; total holes = 27*N; marbles = 5*N. Six players remains the default and MVP maximum. Validate connector alignment, overlaps, hole clearance and track continuity before runtime implementation; any master geometry changes require explicit approval.
 
 ## MVP scope clarification
-MVP gameplay, board rendering and tests cover 3, 4, 5 and 6 players. Seven through twelve are approved visual designs only and deferred. Six-player default retains three opposite-seat partnerships. Team modes and deck rules for other player counts require confirmation; do not assume them.
+MVP gameplay, board rendering and tests cover 3, 4, 5 and 6 players. Seven through twelve are approved visual designs only and deferred. Six-player default retains three opposite-seat partnerships. Approved competition modes: 3 and 5 players individual; 4 players individual or two teams of two; 6 players individual or three teams of two. Default is six players with three opposite-seat partnerships. Deck requirements for non-default player counts remain to be confirmed.
+
+MVP scope approved and locked. Do not expand beyond six players without explicit approval.
