@@ -1,17 +1,15 @@
-# Modular Board Piece v1 — approved 2026-11-26
+# Modular Board Piece v1 — original-reference revision approved 2026-11-26
 
-The canonical visual baseline is [modular-board-v1.svg](modular-board-v1.svg), preserving the exact vector path and hole coordinates from the approved 6/8/10/12/16/20-player geometry study.
+The canonical approved visual baseline is [modular-board-v1.svg](modular-board-v1.svg), the vector approximation of the top piece in the user's original Etsy reference photograph. It supersedes the earlier simplified silhouette.
 
-## Non-negotiable
-- One master piece, identical dimensions, silhouette, thickness and hole coordinates for every seat and player count.
-- No stretching, warping, mirroring or per-seat redesign. Only rigid rotation, translation and player color may differ; uniform scaling of the entire board to fit a screen is allowed.
-- 18 track holes, five L-shaped home holes and five cross-shaped start holes per piece.
-- Natural maple wood, recessed holes, glossy colored marbles.
-- Assemble N copies into a regular N-sided polygon. Study transform: rotate(i * 360/N) then translate(0, -48/tan(pi/N)).
-- Default six players, three opposite-seat partnerships. Target architecture 3–12 players; six-player MVP first. Other player counts require rules and deck validation.
-- Rotate the assembled board to the active player's perspective; never change its topology.
+- Every piece must be an identical copy: same silhouette, dimensions, thickness and hole coordinates. Only rigid rotation, translation and player color may differ. Uniform scaling of the entire board is allowed.
+- 17 track holes, five L-shaped home holes, five cross-shaped starting holes (27 total).
+- Every hole must be fully contained in its own piece, with positive edge clearance and no overlap.
+- Natural maple wood, recessed holes and glossy glass marbles.
+- Default six players, three opposite-seat partnerships. Target 3–12 players, six-player MVP first.
+- Rotate the assembled board to face the active player.
+- Six-player topology target: 102 track spaces, 30 start and 30 home positions; 108 playing cards unchanged.
 
-## Validation before implementation
-The approved study is a visual baseline, not mechanically validated joinery. Verify connector fit, hole containment and continuity at all supported angles. Any necessary change to the master path or hole coordinates requires explicit approval and a new design version; do not silently alter individual pieces. Verify the track/start/home mapping against GameCore. The SVG is a reference, not yet a native renderer.
+The approved SVG is a visual approximation, not mechanically validated joinery. Before implementing, verify full hole containment, connector fit and track continuity at each supported angle. The old assembly transform is superseded; derive the new transform from connector geometry. GameCore currently needs topology reconciliation. Any change to the approved master silhouette or hole coordinates requires explicit approval and a new revision. No per-seat reshaping.
 
 Related: #2, #4, #9, #11.
