@@ -1,0 +1,66 @@
+name: Build, test and release
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: swift test
+  build:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scheme: JokersController
+            destination: generic/platform=iOS Simulator
+          - scheme: JokersTV
+            destination: generic/platform=tvOS Simulator
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Build unsigned simulator app
+        env:
+          SCHEME: ${{ matrix.scheme }}
+          DESTINATION: ${{ matrix.destination }}
+        run: |
+          set -euo pipefail
+          xcodebuild -project JokersAndMarbles.xcodeproj -scheme "$SCHEME" -configuration Release -destination "$DESTINATION" -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          mkdir -p dist
+          APP=$(find build/Build/Products -maxdepth 2 -name "$SCHEME.app" -print -quit)
+          test -n "$APP"
+          ditto -c -k --keepParent "$APP" "dist/$SCHEME.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.scheme }}
+          path: dist/*.zip
+          if-no-files-found: error
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish versioned prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v0.1.${{ github.run_number }}
+        run: |
+          gh release create "$TAG" dist/*.zip --target "$GITHUB_SHA" --title "$TAG" --prerelease --generate-notes
