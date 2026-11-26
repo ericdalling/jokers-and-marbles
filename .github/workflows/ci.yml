@@ -62,10 +62,21 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Validate downloaded release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -lah dist
+          for app in JokersController JokersTV; do
+            test -s "dist/$app.zip"
+            unzip -tq "dist/$app.zip"
+          done
       - name: Publish versioned prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: v0.1.${{ github.run_number }}
         run: |
-          gh release create "$TAG" dist/*.zip --target "$GITHUB_SHA" --title "$TAG" --prerelease --generate-notes
+          set -euo pipefail
+          gh release create "$TAG" dist/JokersController.zip dist/JokersTV.zip --repo "$GH_REPO" --target "$GITHUB_SHA" --title "$TAG" --prerelease --generate-notes
+          gh release view "$TAG" --repo "$GH_REPO" --json tagName,assets,url
