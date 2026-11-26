@@ -1,0 +1,40 @@
+import Testing
+import GameCore
+
+@Test func classicConfiguration() throws {
+    let rules = GameRules.classic
+    #expect(rules.trackLength == 108)
+    #expect(rules.teamCount == 3)
+    #expect(rules.team(of: 0) == rules.team(of: 3))
+    #expect(rules.team(of: 1) != rules.team(of: 0))
+    let game = try ClassicGame(seed: 42)
+    #expect(game.marbles.count == 30)
+    #expect(game.hand(for: 0).count == 6)
+    #expect(game.hand(for: 1).count == 5)
+}
+@Test func rejectsInvalidCommands() throws {
+    var game = try ClassicGame(seed: 42)
+    let move = try #require(game.legalPlays().first)
+    #expect(throws: ClassicGameError.wrongTurn) { try game.play(move, by: 1) }
+    #expect(throws: ClassicGameError.illegalPlay) {
+        try game.play(GamePlay(cardIndex: 999, steps: []), by: 0)
+    }
+    #expect(game.activeSeat == 0)
+}
+@Test func deterministicSimulation() throws {
+    var a = try ClassicGame(seed: 42)
+    var b = try ClassicGame(seed: 42)
+    for _ in 0..<500 {
+        if a.winner != nil { break }
+        #expect(a.legalPlays() == b.legalPlays())
+        let move = try #require(a.legalPlays().first)
+        try a.play(move, by: a.activeSeat)
+        try b.play(move, by: b.activeSeat)
+        #expect(a.marbles == b.marbles)
+        #expect(a.winner == b.winner)
+        let track = a.marbles.compactMap { marble -> Int? in
+            if case let .track(t) = marble.position { return t }; return nil
+        }
+        #expect(Set(track).count == track.count)
+    }
+}
