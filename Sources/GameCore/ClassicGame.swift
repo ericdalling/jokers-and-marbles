@@ -170,6 +170,8 @@ public struct ClassicGame: Sendable {
             }
             plays += options.map { GamePlay(cardIndex: cardIndex, steps: $0) }
         }
+        let ordinary = plays.filter { hands[activeSeat][$0.cardIndex] != .joker }
+        if !ordinary.isEmpty { return ordinary }
         if plays.isEmpty {
             return hands[activeSeat].indices.map { GamePlay(cardIndex: $0, steps: []) }
         }
