@@ -1,0 +1,66 @@
+name: TestFlight
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build, test and release"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+jobs:
+  release:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scheme: JokersController
+            platform: iOS
+            bundle: com.ericdalling.jokersandmarbles.controller
+          - scheme: JokersTV
+            platform: tvOS
+            bundle: com.ericdalling.jokersandmarbles.tv
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify trusted commit
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Generate assets and project
+        run: |
+          brew install xcodegen
+          python3 -m venv "$RUNNER_TEMP/branding-venv"
+          "$RUNNER_TEMP/branding-venv/bin/pip" install Pillow==11.3.0
+          "$RUNNER_TEMP/branding-venv/bin/python" scripts/generate_branding.py
+          xcodegen generate
+      - name: Test manual releases
+        if: github.event_name == 'workflow_dispatch'
+        run: swift test
+      - name: Archive and upload to TestFlight
+        env:
+          ASC_API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          SCHEME: ${{ matrix.scheme }}
+          PLATFORM: ${{ matrix.platform }}
+          BUNDLE_ID: ${{ matrix.bundle }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: bash scripts/testflight.sh
