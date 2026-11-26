@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-56 -12 112 34">
+<defs><g id="piece">
+<path d="M-48 -6 H48 A6 6 0 0 1 48 6 H36 Q32 6 30 12 H12 Q9 12 7 20 H-32 Q-37 20 -37 6 H-48 A6 6 0 0 0 -48 -6 Z" fill="#dfb784" stroke="#a77b4b" stroke-width=".7"/>
+<circle cx="-43" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-37.7" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-32.4" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-27.1" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-21.8" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-16.5" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-11.200000000000003" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-5.899999999999999" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-0.6000000000000014" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="4.699999999999996" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="10" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="15.299999999999997" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="20.599999999999994" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="25.89999999999999" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="31.200000000000003" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="36.5" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="41.8" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="47.099999999999994" cy="-2" r="1.7" fill="#96683e"/>
+<circle cx="-30" cy="4" r="1.8" fill="currentColor"/>
+<circle cx="-30" cy="9" r="1.8" fill="currentColor"/>
+<circle cx="-30" cy="14" r="1.8" fill="currentColor"/>
+<circle cx="-25" cy="14" r="1.8" fill="currentColor"/>
+<circle cx="-20" cy="14" r="1.8" fill="currentColor"/>
+<circle cx="-5" cy="4" r="1.8" fill="currentColor"/>
+<circle cx="-10" cy="9" r="1.8" fill="currentColor"/>
+<circle cx="-5" cy="9" r="1.8" fill="currentColor"/>
+<circle cx="0" cy="9" r="1.8" fill="currentColor"/>
+<circle cx="-5" cy="14" r="1.8" fill="currentColor"/>
+</g></defs><use href="#piece" color="#c72f32"/>
+</svg>
