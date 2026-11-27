@@ -17,6 +17,14 @@ public struct TeamInvitation: Codable, Equatable, Sendable {
     public let recipient: UUID
 }
 
+public struct PublicMove: Codable, Sendable {
+    public let seat: Int
+    public let card: PlayingCard
+    public let steps: [MarbleStep]
+    public let before: [GameMarble]
+    public let revision: Int
+}
+
 public struct PublicSession: Codable, Sendable {
     public let capacity: Int
     public let individual: Bool
@@ -29,6 +37,7 @@ public struct PublicSession: Codable, Sendable {
     public let discard: PlayingCard?
     public let winner: Int?
     public let revision: Int
+    public let lastMove: PublicMove?
 }
 
 public struct PrivateSession: Codable, Sendable {
@@ -45,6 +54,7 @@ public struct HostSession: Sendable {
     private var seats: [UUID] = []
     private var game: ClassicGame?
     private var revision = 0
+    private var lastMove: PublicMove?
 
     public init(capacity: Int, individual: Bool) throws {
         guard (3...6).contains(capacity), individual || capacity % 2 == 0 else {
@@ -140,7 +150,7 @@ public struct HostSession: Sendable {
     public func publicState() -> PublicSession {
         PublicSession(capacity: capacity, individual: individual, members: members, invitations: invitations,
                       seats: seats, activeSeat: game?.activeSeat, marbles: game?.marbles ?? [],
-                      drawCount: game?.drawCount, discard: game?.topDiscard, winner: game?.winner, revision: revision)
+                      drawCount: game?.drawCount, discard: game?.topDiscard, winner: game?.winner, revision: revision, lastMove: lastMove)
     }
 
     // Caller must bind id to an authenticated connection, never trust a client-supplied identity.
@@ -156,7 +166,11 @@ public struct HostSession: Sendable {
         guard expectedRevision == revision, let seat = seats.firstIndex(of: id), var current = game else {
             throw HostSessionError.unauthorized
         }
+        let before = current.marbles
         try current.play(move, by: seat)
+        if let card = current.topDiscard {
+            lastMove = PublicMove(seat: seat, card: card, steps: move.steps, before: before, revision: revision + 1)
+        }
         game = current
         revision += 1
     }
