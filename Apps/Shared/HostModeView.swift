@@ -4,8 +4,6 @@ import GameCore
 
 struct HostModeView: View {
     @StateObject private var host = HostCoordinator()
-    @State private var count = 6
-    @State private var individual = false
     @State private var confirmClose = false
     let close: () -> Void
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
@@ -16,7 +14,7 @@ struct HostModeView: View {
                 Text("Jokers & Marbles").font(.system(.largeTitle, design: .serif).italic())
                 Text("Host Mode").font(.headline)
                 if let state = host.state {
-                    if let active = state.activeSeat {
+                    if state.activeSeat != nil {
                         PublicGameplayView(state: state, connected: host.connectedPlayers)
 
                     } else {
@@ -44,23 +42,18 @@ struct HostModeView: View {
                                     .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 16))
                                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(colors[member.color].opacity(0.7), lineWidth: 2))
                             }
-                            ForEach(0..<max(0, state.capacity - state.members.count), id: \.self) { _ in
-                                Text("Open seat").padding()
+                            ForEach(0..<max(0, 3 - state.members.count), id: \.self) { _ in
+                                VStack { Image(systemName: "cpu"); Text("Robot • auto-fill") }.padding()
                             }
                         }
+                        Text("\(state.members.count) of 6 players joined")
+                        if [4, 6].contains(state.members.count) { Button(state.individual ? "Switch to teams" : "Switch to individual") { host.configureTeams(state.individual) } }
                         Button("Start game") { host.start() }
-                            .disabled(state.members.count != state.capacity || !state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) })
+                            .disabled(state.members.isEmpty || !state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) })
                     }
                     Button("Close room") { confirmClose = true }
                 } else {
-                    HStack {
-                        ForEach(3...6, id: \.self) { n in
-                            Button("\(n) players") { count = n }.tint(count == n ? .orange : .gray)
-                        }
-                    }
-                    if count % 2 == 0 { Button(individual ? "Individual" : "Teams") { individual.toggle() } }
-                    else { Text("Individual") }
-                    Button("Open room") { host.open(capacity: count, individual: individual || count % 2 != 0) }
+                    Button("Open new room") { host.open() }
                     Button("Back", action: close)
                 }
                 if !host.error.isEmpty { Text(host.error).foregroundStyle(.red) }
@@ -76,6 +69,7 @@ struct HostModeView: View {
             Button("Allow") { host.approveConnection(true) }
             Button("Deny", role: .cancel) { host.approveConnection(false) }
         } message: { Text("Approve only when someone you know is joining your room.") }
+        .onAppear { if host.state == nil { host.open() } }
         .onDisappear { host.close() }
     }
 
