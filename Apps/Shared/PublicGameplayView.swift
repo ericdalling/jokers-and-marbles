@@ -4,6 +4,8 @@ import GameCore
 struct PublicGameplayView: View {
     let state: PublicSession
     let connected: Set<UUID>
+    @State private var drawing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
     private var active: Int { state.activeSeat ?? 0 }
     private func member(_ seat: Int) -> LobbyMember? {
@@ -38,7 +40,18 @@ struct PublicGameplayView: View {
                     VStack(spacing: 5) {
                         Text("Jokers & Marbles").font(.system(.caption, design: .serif).italic())
                         HStack {
-                            Text("▧").font(.title).foregroundStyle(.white).padding(8).background(.blue, in: RoundedRectangle(cornerRadius: 6))
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.05, green: 0.18, blue: 0.42))
+                                RoundedRectangle(cornerRadius: 4).strokeBorder(.white.opacity(0.8), lineWidth: 2).padding(4)
+                                Image(systemName: "diamond.fill").foregroundStyle(.white.opacity(0.8))
+                            }.frame(width: 44, height: 62)
+                                .overlay {
+                                    if drawing {
+                                        RoundedRectangle(cornerRadius: 6).fill(.blue)
+                                            .overlay(Image(systemName: "diamond.fill").foregroundStyle(.white))
+                                            .offset(x: 30, y: -35).rotationEffect(.degrees(12))
+                                    }
+                                }
                             Text(state.discard.map { String(describing: $0) } ?? "—").font(.caption).foregroundStyle(.black).padding(8).background(.white, in: RoundedRectangle(cornerRadius: 6))
                         }
                         Text("Draw: \(state.drawCount ?? 0)").font(.caption)
@@ -62,6 +75,12 @@ struct PublicGameplayView: View {
                     }
                 }.frame(maxWidth: 220)
             }
+        }
+        .task(id: state.revision) {
+            guard !state.presentingMove, state.lastMove != nil, state.winner == nil, !reduceMotion else { return }
+            withAnimation(.easeOut(duration: 0.35)) { drawing = true }
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.easeIn(duration: 0.25)) { drawing = false }
         }
     }
 }
