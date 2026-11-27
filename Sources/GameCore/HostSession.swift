@@ -22,6 +22,7 @@ public struct PublicMove: Codable, Sendable {
     public let card: PlayingCard
     public let steps: [MarbleStep]
     public let before: [GameMarble]
+    public let routes: [[MarblePosition]]
     public let revision: Int
 }
 
@@ -167,9 +168,10 @@ public struct HostSession: Sendable {
             throw HostSessionError.unauthorized
         }
         let before = current.marbles
+        let routes = current.movementRoutes(for: move)
         try current.play(move, by: seat)
         if let card = current.topDiscard {
-            lastMove = PublicMove(seat: seat, card: card, steps: move.steps, before: before, revision: revision + 1)
+            lastMove = PublicMove(seat: seat, card: card, steps: move.steps, before: before, routes: routes, revision: revision + 1)
         }
         game = current
         revision += 1
