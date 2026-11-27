@@ -4,7 +4,14 @@ import CryptoKit
 import MultipeerConnectivity
 import GameCore
 
+enum RoomProof {
+    static func make(secret: String, nonce: UUID) -> String {
+        HMAC<SHA256>.authenticationCode(for: Data(nonce.uuidString.utf8), using: SymmetricKey(data: Data(secret.utf8))).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
 enum SessionCommand: Codable {
+    case challenge(UUID)
     case join(name: String, color: Int)
     case resume(UUID)
     case invite(UUID)
@@ -15,6 +22,7 @@ enum SessionCommand: Codable {
 }
 
 enum SessionReply: Codable {
+    case proof(String)
     case identity(player: UUID, token: UUID)
     case state(PublicSession, PrivateSession?)
     case error(String)
