@@ -16,6 +16,7 @@ final class HostCoordinator: ObservableObject {
         transport.onData = { [weak self] data, peer in self?.receive(data, from: peer) }
         transport.onConnection = { [weak self] peer, connected in
             if !connected { self?.identities.removeValue(forKey: peer) }
+            self?.publish()
         }
     }
 
@@ -32,7 +33,8 @@ final class HostCoordinator: ObservableObject {
 
     func start() {
         do {
-            try host?.start(seed: UInt64.random(in: 0...UInt64.max))
+            guard let host, host.publicState().members.allSatisfy({ identities.values.contains($0.id) }) else { throw HostSessionError.notReady }
+            try self.host?.start(seed: UInt64.random(in: 0...UInt64.max))
             publish()
         } catch { self.error = String(describing: error) }
     }
