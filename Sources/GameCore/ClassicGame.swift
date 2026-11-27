@@ -60,6 +60,9 @@ public struct ClassicGame: Sendable {
         }
         draw()
     }
+    public var drawCount: Int { deck.count }
+    public var topDiscard: PlayingCard? { discard.last }
+    public func handCount(for seat: Int) -> Int { hand(for: seat).count }
     public func hand(for seat: Int) -> [PlayingCard] {
         hands.indices.contains(seat) ? hands[seat] : []
     }
