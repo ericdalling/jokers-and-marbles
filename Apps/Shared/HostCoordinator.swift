@@ -52,11 +52,12 @@ final class HostCoordinator: ObservableObject {
                 let id = UUID(), token = UUID()
                 try current.join(id: id, name: name, color: color)
                 identities[peer] = id; tokens[token] = id
-                transport.send(SessionReply.identity(token), to: peer)
+                transport.send(SessionReply.identity(player: id, token: token), to: peer)
             case let .resume(token):
                 guard identities[peer] == nil, let id = tokens[token],
                       !identities.values.contains(id) else { throw HostSessionError.unauthorized }
                 identities[peer] = id
+                transport.send(SessionReply.identity(player: id, token: token), to: peer)
             default:
                 guard let id = identities[peer] else { throw HostSessionError.unauthorized }
                 switch command {
