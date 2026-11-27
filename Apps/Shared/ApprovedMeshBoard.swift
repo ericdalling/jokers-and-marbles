@@ -80,6 +80,7 @@ private struct ApprovedGLB {
 struct ApprovedMeshBoard: View {
     let playerCount: Int
     let seatColors: [Int]
+    var marbles: [MeshMarble] = []
     private static let asset = ApprovedGLB()
     static let available: Bool = asset?.piece(color: .red) != nil
     private let palette: [UIColor] = [.systemRed, .systemBlue, .systemGreen, .systemYellow, .systemPurple, .systemOrange]
@@ -107,6 +108,22 @@ struct ApprovedMeshBoard: View {
             pivot.addChildNode(piece)
             scene.rootNode.addChildNode(pivot)
         }
+        for marble in marbles {
+            let sphere = SCNSphere(radius: 0.018)
+            sphere.segmentCount = 32
+            let material = SCNMaterial()
+            material.lightingModel = .physicallyBased
+            material.diffuse.contents = palette[marble.color % palette.count]
+            material.roughness.contents = 0.12
+            material.metalness.contents = 0
+            material.clearCoat.contents = 1.0
+            material.clearCoatRoughness.contents = 0.06
+            sphere.materials = [material]
+            let node = SCNNode(geometry: sphere)
+            let scale = min(size.width, size.height) / CGFloat(2 * extent)
+            node.position = SCNVector3(Float((marble.point.x - size.width / 2) / scale / 1000), Float((size.height / 2 - marble.point.y) / scale / 1000), 0.035)
+            scene.rootNode.addChildNode(node)
+        }
         let camera = SCNNode()
         camera.name = "camera"
         camera.camera = SCNCamera()
@@ -127,4 +144,9 @@ struct ApprovedMeshBoard: View {
         scene.rootNode.addChildNode(key)
         return scene
     }
+}
+
+struct MeshMarble {
+    let point: CGPoint
+    let color: Int
 }
