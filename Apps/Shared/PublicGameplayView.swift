@@ -12,7 +12,7 @@ struct PublicGameplayView: View {
     }
     var body: some View {
         VStack(spacing: 12) {
-            Text(state.winner == nil ? "\(member(active)?.name ?? "Player")’s turn" : "Game complete")
+            Text(state.presentingMove ? "Resolving move…" : state.winner == nil ? "\(member(active)?.name ?? "Player")’s turn" : "Game complete")
                 .font(.system(.title, design: .serif).bold())
                 .padding(12).frame(maxWidth: .infinity)
                 .background(colors[member(active)?.color ?? 0].opacity(0.35), in: Capsule())
