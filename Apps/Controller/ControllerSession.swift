@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import MultipeerConnectivity
 import GameCore
 
@@ -17,6 +18,8 @@ final class ControllerSession: ObservableObject {
     private var retry: DispatchWorkItem?
     private var retryCount = 0
     private var lastHost: MCPeerID?
+    private var discovery: AnyCancellable?
+    private var discoveryTimeout: DispatchWorkItem?
     private func scheduleReconnect() {
         guard token != nil, retryCount < 5 else { return }
         retry?.cancel()
@@ -31,6 +34,10 @@ final class ControllerSession: ObservableObject {
     }
 
     init() {
+        discovery = transport.$peers.receive(on: DispatchQueue.main).sink { [weak self] peers in
+            guard let self, self.target == nil, !self.room.isEmpty, let peer = peers.first(where: { self.token == nil || $0 == self.lastHost }) else { return }
+            self.discoveryTimeout?.cancel(); self.connect(peer)
+        }
         transport.onConnection = { [weak self] peer, connected in
             guard let self, peer == self.target else { return }
             self.status = connected ? "Connected" : "Disconnected — reconnect to resume"
@@ -66,11 +73,19 @@ final class ControllerSession: ObservableObject {
         retry?.cancel(); retryCount = 0
         if room != code { token = nil; player = nil; lastHost = nil }
         room = code; target = nil; state = nil; personal = nil
+        status = "Searching for room…"
+        discoveryTimeout?.cancel()
         transport.browse(code: code)
+        let timeout = DispatchWorkItem { [weak self] in
+            guard let self, self.target == nil else { return }
+            self.status = "Room not found. Check the code and Wi-Fi, then try again."
+        }
+        discoveryTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeout)
     }
     func connect(_ peer: MCPeerID) {
         guard token == nil || lastHost == peer else { status = "Original host required to reconnect"; return }
-        target = peer; lastHost = peer; transport.connect(peer, secret: secret, token: token)
+        status = "Connecting…"; target = peer; lastHost = peer; transport.connect(peer, secret: secret, token: token)
     }
     func send(_ command: SessionCommand) {
         guard verified, let target, transport.connected.contains(target) else { status = "Not connected"; return }
@@ -78,7 +93,7 @@ final class ControllerSession: ObservableObject {
     }
     func leave() {
         retry?.cancel(); retryCount = 0; lastHost = nil; secret = nil; verified = false; nonce = nil
-        transport.stop(); target = nil; token = nil; player = nil; state = nil; personal = nil
+        discoveryTimeout?.cancel(); room = ""; status = ""; transport.stop(); target = nil; token = nil; player = nil; state = nil; personal = nil
     }
 }
 
@@ -138,24 +153,39 @@ struct ControllerLobbyView: View {
                         }
                     }
                 } else {
-                    Section("Join game") {
-                        Button("Scan QR code") { scan = true }
-                        TextField("Room code", text: $code).keyboardType(.numberPad)
-                        Button("Find room") { client.browse(code) }.disabled(code.count != 6)
-                        PeerList(transport: client.transport, connect: client.connect)
-                        TextField("Your name", text: $name)
-                        Picker("Marble color", selection: $color) {
-                            ForEach((0..<6).filter { i in !(client.state?.members.contains { $0.color == i } ?? false) }, id: \.self) { i in Circle().fill(colors[i]).frame(width: 24, height: 24).tag(i) }
+                    if let state = client.state {
+                        Section("Player setup") {
+                            TextField("Your name", text: $name)
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+                                ForEach(0..<6, id: \.self) { i in
+                                    let taken = state.members.contains { $0.color == i }
+                                    Button { color = i } label: {
+                                        VStack {
+                                            Circle().fill(RadialGradient(colors: [.white, colors[i], .black], center: .topLeading, startRadius: 0, endRadius: 46)).frame(width: 46, height: 46)
+                                            Text(["Red", "Blue", "Green", "Yellow", "Purple", "Orange"][i]).font(.caption)
+                                            if taken { Text("Taken").font(.caption2) }
+                                        }.frame(maxWidth: .infinity).padding(8)
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(color == i ? Color.orange : Color.clear, lineWidth: 2))
+                                    }.buttonStyle(.plain).disabled(taken).opacity(taken ? 0.35 : 1)
+                                }
+                            }
+                            Button("Join") { client.send(.join(name: name, color: color)) }
+                                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil || state.members.contains { $0.color == color })
                         }
-                        Button("Join") { client.send(.join(name: name, color: color)) }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil || client.state == nil || (client.state?.members.contains { $0.color == color } ?? false))
+                    } else {
+                        Section("Join game") {
+                            Button("Scan QR code") { scan = true }
+                            TextField("Room code", text: $code).keyboardType(.numberPad)
+                            Button("Connect to room") { client.browse(code) }.disabled(code.count != 6 || !code.allSatisfy(\.isNumber))
+                        }
                     }
                     if let hostMode, client.player == nil { Button("Switch to Host Mode") { client.leave(); hostMode() } }
                 }
-                Text(client.status)
-                Button("Reconnect") { client.browse(code) }.disabled(code.count != 6)
-                Button("Leave room", role: .destructive) { client.leave() }
+                if !client.status.isEmpty { Text(client.status) }
+                if client.player != nil && client.state == nil { Button("Reconnect") { client.browse(code) } }
+                if !client.room.isEmpty { Button("Leave room", role: .destructive) { client.leave() } }
             }.scrollContentBackground(.hidden)
-            .background(LinearGradient(colors: [Color(red: 0.27, green: 0.14, blue: 0.07), Color(red: 0.09, green: 0.04, blue: 0.02)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .background(GameBackdrop())
             .preferredColorScheme(.dark).tint(.orange)
             }
             }
