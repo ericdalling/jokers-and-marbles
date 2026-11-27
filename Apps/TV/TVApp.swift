@@ -10,6 +10,8 @@ struct TVApp: App {
 
 private struct BoardPreviewScreen: View {
     @State private var count = 6
+    @State private var individual = false
+    private var paired: Bool { !individual && count % 2 == 0 }
     @State private var previewActive = 0
     @State private var game: ClassicGame?
     @State private var errorMessage: String?
@@ -24,18 +26,18 @@ private struct BoardPreviewScreen: View {
                 HStack {
                     Text("Jokers & Marbles").font(.system(size: 42, weight: .bold, design: .serif))
                     Spacer()
-                    Text(game?.winner.map { "Team \($0 + 1) wins!" } ?? (names[active] + "’s Turn")).font(.title2.bold())
+                    Text(game?.winner.map { paired ? "Team \($0 + 1) wins!" : names[$0] + " wins!" } ?? (names[active] + "’s Turn")).font(.title2.bold())
                         .padding(12).background(colors[active].opacity(0.4), in: Capsule())
                     Spacer()
-                    if count == 6 {
+                    if paired {
                         HStack(spacing: 18) {
-                            ForEach(0..<3) { team in
+                            ForEach(0..<(count / 2)) { team in
                                 HStack(spacing: 4) {
                                     Circle().fill(colors[team]).frame(width: 18, height: 18)
-                                    Circle().fill(colors[team + 3]).frame(width: 18, height: 18)
+                                    Circle().fill(colors[team + count / 2]).frame(width: 18, height: 18)
                                 }
                             }
-                        }.accessibilityLabel("Three opposite-seat teams")
+                        }.accessibilityLabel("Opposite-seat teams")
                     }
                 }
                 Text(game == nil ? "Gameplay preview" : "Local engine test • automatic legal moves • controllers pending").font(.caption)
@@ -70,6 +72,9 @@ private struct BoardPreviewScreen: View {
                         ForEach(3...6, id: \.self) { n in
                             Button("\(n) players") { count = n; previewActive = 0 }
                         }
+                        if count % 2 == 0 {
+                            Button(individual ? "Individual" : "Teams") { individual.toggle() }
+                        }
                         Button("Rotate") { previewActive = (previewActive + 1) % count }
                         Button("Start game test") { startGame() }
                     } else {
@@ -91,8 +96,8 @@ private struct BoardPreviewScreen: View {
 
     private func startGame() {
         do {
-            game = try ClassicGame(seed: UInt64.random(in: 0...UInt64.max))
-            count = 6
+            let rules = try GameRules.modular(seats: count, individual: individual)
+            game = try ClassicGame(rules: rules, seed: UInt64.random(in: 0...UInt64.max))
             errorMessage = nil
         } catch { errorMessage = String(describing: error) }
     }
