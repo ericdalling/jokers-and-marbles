@@ -4,7 +4,7 @@ import GameCore
 @main
 struct TVApp: App {
     var body: some Scene {
-        WindowGroup { BoardPreviewScreen() }
+        WindowGroup { HostModeView {} }
     }
 }
 

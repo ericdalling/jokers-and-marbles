@@ -10,10 +10,18 @@ targets:
   JokersController:
     type: application
     platform: iOS
-    sources: [Apps/Controller]
+    sources: [Apps/Controller, Apps/Shared, Apps/TV/ModularBoardView.swift]
     dependencies:
       - package: GameCore
         product: GameCore
+    info:
+      path: Config/Controller-Info.plist
+      properties:
+        NSCameraUsageDescription: Scan the game room QR code.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [jokersmarbles]
+        NSLocalNetworkUsageDescription: Connect to your local Jokers and Marbles game.
+        NSBonjourServices: ['_jokers-marble._tcp']
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ericdalling.jokersandmarbles.controller
@@ -29,10 +37,15 @@ targets:
   JokersTV:
     type: application
     platform: tvOS
-    sources: [Apps/TV]
+    sources: [Apps/TV, Apps/Shared]
     dependencies:
       - package: GameCore
         product: GameCore
+    info:
+      path: Config/TV-Info.plist
+      properties:
+        NSLocalNetworkUsageDescription: Connect to your local Jokers and Marbles game.
+        NSBonjourServices: ['_jokers-marble._tcp']
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: BrandAssets
