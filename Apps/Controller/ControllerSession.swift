@@ -77,7 +77,7 @@ final class ControllerSession: ObservableObject {
         transport.send(command, to: target)
     }
     func leave() {
-        retry?.cancel(); retryCount = 0; lastHost = nil
+        retry?.cancel(); retryCount = 0; lastHost = nil; secret = nil; verified = false; nonce = nil
         transport.stop(); target = nil; token = nil; player = nil; state = nil; personal = nil
     }
 }
@@ -139,9 +139,9 @@ struct ControllerLobbyView: View {
                         PeerList(transport: client.transport, connect: client.connect)
                         TextField("Your name", text: $name)
                         Picker("Marble color", selection: $color) {
-                            ForEach(0..<6) { i in Circle().fill(colors[i]).frame(width: 24, height: 24).tag(i) }
+                            ForEach((0..<6).filter { i in !(client.state?.members.contains { $0.color == i } ?? false) }, id: \.self) { i in Circle().fill(colors[i]).frame(width: 24, height: 24).tag(i) }
                         }
-                        Button("Join") { client.send(.join(name: name, color: color)) }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil)
+                        Button("Join") { client.send(.join(name: name, color: color)) }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil || client.state == nil || (client.state?.members.contains { $0.color == color } ?? false))
                     }
                     if let hostMode, client.player == nil { Button("Switch to Host Mode") { client.leave(); hostMode() } }
                 }
