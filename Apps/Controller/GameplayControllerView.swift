@@ -12,6 +12,7 @@ struct GameplayControllerView: View {
     @State private var zoom: CGFloat = 1
     @State private var submitted = false
     @State private var replacementGlow = false
+    @State private var showRules = false
     private var active: Bool { personal.seat == state.activeSeat && state.winner == nil && !state.presentingMove }
     private var member: LobbyMember? { state.members.first { $0.id == player } }
     private var options: [GamePlay] { personal.legalPlays.filter { $0.cardIndex == selectedCard } }
@@ -24,7 +25,7 @@ struct GameplayControllerView: View {
         GeometryReader { geo in
             ScrollView {
                 VStack(spacing: 16) {
-                    Text(member?.name ?? "Player").font(.system(.title, design: .serif).bold())
+                    HStack { Text(member?.name ?? "Player").font(.system(.title, design: .serif).bold()); Spacer(); Button("Rules") { showRules = true } }
                     Text(state.winner != nil ? "Game complete" : state.presentingMove ? "Resolving move…" : active ? "Your turn" : "Waiting for " + turnName)
                         .font(.headline).padding(10).background(.orange.opacity(active ? 0.35 : 0.12), in: Capsule())
                     if let partner = state.members.first(where: { $0.id == member?.partner }) {
@@ -38,6 +39,24 @@ struct GameplayControllerView: View {
         }
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
         .background(LinearGradient(colors: [.brown.opacity(0.7), .black], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .sheet(isPresented: $showRules) {
+            NavigationStack {
+                List {
+                    Section("Cards") {
+                        Text("Ace: enter or move 1")
+                        Text("2–6, 9–10: move forward by rank")
+                        Text("7: move seven spaces, optionally split between two marbles")
+                        Text("8: move backward eight spaces")
+                        Text("Jack, Queen, King: enter or move ten")
+                        Text("Joker: replace an eligible opposing or teammate marble when no ordinary move is available")
+                    }
+                    Section("Turns") {
+                        Text("Play one card, resolve the move, then automatically draw a replacement. If no move is legal, discard a card.")
+                        Text("Get all five marbles home. In team games, help your partner finish after your own marbles are home.")
+                    }
+                }.navigationTitle("Game rules").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showRules = false } } }
+            }
+        }
         .onChange(of: state.revision) { _, _ in selectedCard = nil; selectedMarble = nil; selectedMove = nil; submitted = false }
         .task(id: state.revision) {
             guard !state.presentingMove, let move = state.lastMove, move.seat == personal.seat, state.winner == nil else { return }
