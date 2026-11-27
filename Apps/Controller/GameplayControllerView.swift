@@ -41,7 +41,15 @@ struct GameplayControllerView: View {
     }
     private var board: some View {
         ModularBoardView(playerCount: state.capacity, activePlayer: state.activeSeat ?? 0, gameMarbles: state.marbles,
-                         seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 })
+                         seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 },
+                         selectableMarbles: active && !submitted ? Array(Set(options.compactMap { $0.steps.first?.marble })) : [],
+                         selectedMarble: selectedMarble,
+                         onMarble: { selectedMarble = $0; selectedMove = nil },
+                         destinations: selectedMarble == nil || submitted ? [] : Array(Set(filtered.compactMap { $0.steps.first })),
+                         onDestination: { step in
+                             let matches = filtered.filter { $0.steps.first == step }
+                             if matches.count == 1 { selectedMove = matches.first }
+                         })
             .aspectRatio(1, contentMode: .fit)
             .scaleEffect(zoom).clipped()
             .gesture(MagnifyGesture().onChanged { zoom = min(2.5, max(1, $0.magnification)) })
