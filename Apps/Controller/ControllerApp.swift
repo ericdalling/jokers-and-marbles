@@ -1,22 +1,10 @@
 import SwiftUI
-
-@main
-struct ControllerApp: App {
+@main struct ControllerApp: App {
+    @State private var hosting = false
     var body: some Scene {
         WindowGroup {
-            GeometryReader { geometry in
-                ScrollView([.vertical, .horizontal]) {
-                    Image("EmmaInGamePreview")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: geometry.size.width)
-                        .frame(minHeight: geometry.size.height)
-                }
-                .background(Color(red: 0.10, green: 0.04, blue: 0.02))
-                .scrollIndicators(.hidden)
-                .accessibilityLabel("Jokers and Marbles in-game controller concept featuring Emma. Interactive gameplay coming soon.")
-            }
-            .ignoresSafeArea()
+            if hosting { HostModeView { hosting = false } }
+            else { ControllerLobbyView(hostMode: UIDevice.current.userInterfaceIdiom == .pad ? { hosting = true } : nil) }
         }
     }
 }
