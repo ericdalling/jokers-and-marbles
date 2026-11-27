@@ -38,7 +38,7 @@ struct GameplayControllerView: View {
             }
         }
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
-        .background(LinearGradient(colors: [.brown.opacity(0.7), .black], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .background(GameBackdrop())
         .sheet(isPresented: $showRules) {
             NavigationStack {
                 List {
