@@ -17,20 +17,8 @@ struct HostModeView: View {
                 Text("Host Mode").font(.headline)
                 if let state = host.state {
                     if let active = state.activeSeat {
-                        Text(state.winner == nil ? "Current turn: " + (state.members.first { $0.id == state.seats[active] }?.name ?? "") : "Game complete")
-                        Text("Draw pile: \(state.drawCount ?? 0)")
-                        ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
-                                         seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 })
-                            .aspectRatio(1, contentMode: .fit).frame(maxHeight: 650)
-                        HStack {
-                            ForEach(state.seats, id: \.self) { id in
-                                if let member = state.members.first(where: { $0.id == id }) {
-                                    Text(member.name).padding(8)
-                                        .background(colors[member.color].opacity(0.45), in: Capsule())
-                                }
-                            }
-                        }
-                        if let discard = state.discard { Text("Discard: " + String(describing: discard)) }
+                        PublicGameplayView(state: state, connected: host.connectedPlayers)
+
                     } else {
                         HStack(spacing: 30) {
                             if let image = qr(host.roomCode) {
