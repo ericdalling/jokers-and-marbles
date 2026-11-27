@@ -9,11 +9,20 @@ final class HostCoordinator: ObservableObject {
     @Published private(set) var roomCode = ""
     @Published private(set) var error = ""
     @Published private(set) var connectedPlayers: Set<UUID> = []
+    @Published private(set) var pendingConnection = false
+    private var approval: ((Bool) -> Void)?
+    func approveConnection(_ allow: Bool) {
+        let callback = approval; approval = nil; pendingConnection = false; callback?(allow)
+    }
     private var host: HostSession?
     private var identities: [MCPeerID: UUID] = [:]
     private var tokens: [UUID: UUID] = [:]
 
     init() {
+        transport.onInvitation = { [weak self] _, reply in
+            guard let self, self.approval == nil else { reply(false); return }
+            self.approval = reply; self.pendingConnection = true
+        }
         transport.onData = { [weak self] data, peer in self?.receive(data, from: peer) }
         transport.onConnection = { [weak self] peer, connected in
             if !connected { self?.identities.removeValue(forKey: peer) }
@@ -41,6 +50,7 @@ final class HostCoordinator: ObservableObject {
     }
 
     func close() {
+        approveConnection(false)
         transport.stop()
         host = nil; state = nil; connectedPlayers = []; identities = [:]; tokens = [:]; roomCode = ""
     }
