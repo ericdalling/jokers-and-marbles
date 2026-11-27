@@ -84,7 +84,11 @@ struct ModularBoardView: View {
                     let route = move.routes.indices.contains(stepIndex) ? move.routes[stepIndex] : []
                     let points = route.compactMap { destinationPoint(move.before[step.marble], destination: $0, size: size) }
                     let path = points.count >= 2 ? points : [origin, end]
-                    let local = min(1, max(0, progress * CGFloat(move.steps.count) - CGFloat(stepIndex)))
+                    let lengths = move.routes.map { max(1, $0.count - 1) }
+                    let total = max(1, lengths.reduce(0, +))
+                    let prior = lengths.prefix(stepIndex).reduce(0, +)
+                    let length = lengths.indices.contains(stepIndex) ? lengths[stepIndex] : 1
+                    let local = min(1, max(0, (progress * CGFloat(total) - CGFloat(prior)) / CGFloat(length)))
                     let distance = local * CGFloat(path.count - 1)
                     let segment = min(path.count - 2, Int(distance))
                     let fraction = distance - CGFloat(segment)
