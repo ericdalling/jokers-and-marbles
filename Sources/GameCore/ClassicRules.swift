@@ -18,6 +18,14 @@ public struct GameRules: Codable, Equatable, Sendable {
                  .seven: .splitForward(7), .eight: .backward(8), .nine: .forward(9),
                  .ten: .forward(10), .jack: .enterOrForward(10),
                  .queen: .enterOrForward(10), .king: .enterOrForward(10)])
+    /// Odd seat counts are individual; even counts default to opposite-seat pairs.
+    public static func modular(seats: Int, individual: Bool = false) throws -> GameRules {
+        guard (3...6).contains(seats) else { throw ClassicGameError.invalidRules }
+        let teams = individual || seats % 2 != 0 ? seats : seats / 2
+        return GameRules(version: classic.version, seats: seats, teamCount: teams,
+                         marblesPerSeat: classic.marblesPerSeat, spacesPerSeat: classic.spacesPerSeat,
+                         handSize: classic.handSize, deck: classic.deck, powers: classic.powers)
+    }
     public var trackLength: Int { seats * spacesPerSeat }
     public func team(of seat: Int) -> Int { seat % teamCount }
     public func entry(of seat: Int) -> Int { seat * spacesPerSeat }
