@@ -162,8 +162,12 @@ struct ModularBoardView: View {
         let scale = min(size.width, size.height) / CGFloat(2 * extent)
         let angle = .pi + Double(seat) * 2 * .pi / n
         let x = point.x - 634, y = point.y - CGFloat(485 / tan(.pi / n) + 128)
-        return CGPoint(x: size.width / 2 + scale * (x * cos(angle) - y * sin(angle)),
-                       y: size.height / 2 + scale * (x * sin(angle) + y * cos(angle)))
+        let c = CGFloat(cos(angle)), s = CGFloat(sin(angle))
+        let rotatedX = x * c - y * s
+        let rotatedY = x * s + y * c
+        let screenX = size.width / 2 + scale * rotatedX
+        let screenY = size.height / 2 + scale * rotatedY
+        return CGPoint(x: screenX, y: screenY)
     }
 
     private static func drawMarble(_ point: CGPoint, color: Color, context: GraphicsContext) {
