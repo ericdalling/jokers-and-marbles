@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import GameCore
 
 /// Visual-only renderer of the approved SVG. Joinery and game topology are not yet validated.
@@ -21,6 +22,8 @@ struct ModularBoardView: View {
         return colors[colors.indices.contains(index) ? index : 0]
     }
     private let colors: [Color] = [Color(red: 0.83, green: 0.035, blue: 0.06), Color(red: 0.025, green: 0.32, blue: 0.95), Color(red: 0.025, green: 0.67, blue: 0.20), Color(red: 0.98, green: 0.76, blue: 0.015), Color(red: 0.58, green: 0.08, blue: 0.85), Color(red: 1, green: 0.36, blue: 0.025)]
+
+    private static let mapleTexture: UIImage? = Bundle.main.url(forResource: "maple", withExtension: "jpg").flatMap { UIImage(contentsOfFile: $0.path) }
 
     var body: some View {
         GeometryReader { geo in
@@ -53,6 +56,11 @@ struct ModularBoardView: View {
                 edge.translateBy(x: 0, y: 12)
                 edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
                 ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.99, green: 0.87, blue: 0.66), Color(red: 0.91, green: 0.73, blue: 0.48), Color(red: 0.97, green: 0.82, blue: 0.59)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
+                if let texture = Self.mapleTexture {
+                    var wood = ctx
+                    wood.clip(to: outline)
+                    wood.draw(Image(uiImage: texture), in: CGRect(x: 160, y: 60, width: 1030, height: 232))
+                } else {
                 var grain = ctx
                 grain.clip(to: outline)
                 for i in 0..<100 {
@@ -65,6 +73,7 @@ struct ModularBoardView: View {
                         line.addLine(to: CGPoint(x: x, y: y + wave))
                     }
                     grain.stroke(line, with: .color(Color(red: 0.47, green: 0.29, blue: 0.13).opacity(Double(i % 5 + 1) * 0.012)), lineWidth: 1)
+                }
                 }
                 ctx.stroke(outline, with: .color(Color(red: 0.65, green: 0.42, blue: 0.22)), lineWidth: 2)
                 ctx.stroke(outline, with: .color(.white.opacity(0.22)), lineWidth: 0.7)
