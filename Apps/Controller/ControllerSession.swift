@@ -11,13 +11,28 @@ final class ControllerSession: ObservableObject {
     @Published var room = ""
     private var target: MCPeerID?
     private var token: UUID?
+    private var retry: DispatchWorkItem?
+    private var retryCount = 0
+    private var lastHost: MCPeerID?
+    private func scheduleReconnect() {
+        guard token != nil, retryCount < 5 else { return }
+        retry?.cancel()
+        retryCount += 1
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let peer = self.lastHost else { return }
+            if self.transport.peers.contains(peer) { self.connect(peer) }
+            else { self.scheduleReconnect() }
+        }
+        retry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(retryCount * 2), execute: work)
+    }
 
     init() {
         transport.onConnection = { [weak self] peer, connected in
             guard let self, peer == self.target else { return }
             self.status = connected ? "Connected" : "Disconnected — reconnect to resume"
-            if connected, let token = self.token { self.send(.resume(token)) }
-            if !connected { self.personal = nil; self.state = nil }
+            if connected { self.retry?.cancel(); self.retryCount = 0; if let token = self.token { self.send(.resume(token)) } }
+            if !connected { self.personal = nil; self.state = nil; self.scheduleReconnect() }
         }
         transport.onData = { [weak self] data, peer in
             guard let self, peer == self.target,
@@ -32,16 +47,21 @@ final class ControllerSession: ObservableObject {
         }
     }
     func browse(_ code: String) {
-        if room != code { token = nil; player = nil }
+        retry?.cancel(); retryCount = 0
+        if room != code { token = nil; player = nil; lastHost = nil }
         room = code; target = nil; state = nil; personal = nil
         transport.browse(code: code)
     }
-    func connect(_ peer: MCPeerID) { target = peer; transport.connect(peer) }
+    func connect(_ peer: MCPeerID) {
+        guard token == nil || lastHost == peer else { status = "Original host required to reconnect"; return }
+        target = peer; lastHost = peer; transport.connect(peer)
+    }
     func send(_ command: SessionCommand) {
         guard let target, transport.connected.contains(target) else { status = "Not connected"; return }
         transport.send(command, to: target)
     }
     func leave() {
+        retry?.cancel(); retryCount = 0; lastHost = nil
         transport.stop(); target = nil; token = nil; player = nil; state = nil; personal = nil
     }
 }
