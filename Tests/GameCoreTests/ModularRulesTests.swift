@@ -18,7 +18,8 @@ func modularConfiguration(seats: Int, individual: Bool) throws {
     }
     var game = try ClassicGame(rules: rules, seed: 42)
     #expect(game.marbles.count == seats * 5)
-    #expect(game.drawCount == 108 - seats * 5 - 1)
+    #expect(game.drawCount == 108 - seats * 5)
+    for seat in 0..<seats { #expect(game.handCount(for: seat) == 5) }
     for _ in 0..<200 {
         if game.winner != nil { break }
         let active = game.activeSeat

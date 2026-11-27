@@ -6,7 +6,7 @@ struct ModularBoardView: View {
     let playerCount: Int
     var activePlayer: Int = 0
     var gameMarbles: [GameMarble]? = nil
-    private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
+    private let colors: [Color] = [Color(red: 0.83, green: 0.035, blue: 0.06), Color(red: 0.025, green: 0.32, blue: 0.95), Color(red: 0.025, green: 0.67, blue: 0.20), Color(red: 0.98, green: 0.76, blue: 0.015), Color(red: 0.58, green: 0.08, blue: 0.85), Color(red: 1, green: 0.36, blue: 0.025)]
 
     var body: some View {
         Canvas { context, size in
@@ -18,20 +18,20 @@ struct ModularBoardView: View {
                 var ctx = context
                 ctx.translateBy(x: size.width / 2, y: size.height / 2)
                 ctx.scaleBy(x: scale, y: scale)
-                ctx.rotate(by: .degrees(180 + Double(seat - activePlayer) * 360 / n))
+                ctx.rotate(by: .degrees(180 + Double(seat) * 360 / n))
                 ctx.translateBy(x: -634, y: CGFloat(-485 / tan(.pi / n) - 128))
                 let outline = Self.outline
                 var edge = ctx
                 edge.translateBy(x: 0, y: 12)
                 edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
-                ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.98, green: 0.79, blue: 0.52), Color(red: 0.78, green: 0.48, blue: 0.23), Color(red: 0.95, green: 0.71, blue: 0.43)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
-                ctx.stroke(outline, with: .color(.brown), lineWidth: 2)
+                ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.99, green: 0.87, blue: 0.66), Color(red: 0.91, green: 0.73, blue: 0.48), Color(red: 0.97, green: 0.82, blue: 0.59)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
+                ctx.stroke(outline, with: .color(Color(red: 0.65, green: 0.42, blue: 0.22)), lineWidth: 2)
                 for point in Self.track {
                     ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.brown, .black.opacity(0.8)]), center: point, startRadius: 0, endRadius: 18))
                     ctx.stroke(Self.hole(point), with: .color(.white.opacity(0.35)), lineWidth: 2)
                 }
                 for point in Self.home + Self.start {
-                    ctx.fill(Self.hole(point), with: .color(colors[seat].opacity(0.55)))
+                    ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [colors[seat].opacity(0.85), .black.opacity(0.85)]), center: CGPoint(x: point.x, y: point.y + 5), startRadius: 0, endRadius: 22))
                     ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
                 }
                 if let gameMarbles {
@@ -61,8 +61,20 @@ struct ModularBoardView: View {
     }
 
     private static func drawMarble(_ point: CGPoint, color: Color, context: GraphicsContext) {
-        let center = CGPoint(x: point.x - 5, y: point.y - 6)
-        context.fill(hole(point), with: .radialGradient(Gradient(colors: [.white, color, .black]), center: center, startRadius: 0, endRadius: 28))
+        let sphere = hole(point)
+        let center = CGPoint(x: point.x - 7, y: point.y - 8)
+        let shadow = Path(ellipseIn: CGRect(x: point.x - 18, y: point.y + 7, width: 36, height: 14))
+        context.fill(shadow, with: .color(.black.opacity(0.65)))
+        context.fill(sphere, with: .radialGradient(Gradient(stops: [
+            .init(color: .white, location: 0),
+            .init(color: color, location: 0.24),
+            .init(color: color, location: 0.57),
+            .init(color: .black, location: 1)
+        ]), center: center, startRadius: 0, endRadius: 30))
+        let reflection = Path(ellipseIn: CGRect(x: point.x - 11, y: point.y - 12, width: 10, height: 6))
+        context.fill(reflection, with: .color(.white.opacity(0.9)))
+        let rim = Path(ellipseIn: CGRect(x: point.x + 4, y: point.y + 8, width: 8, height: 4))
+        context.fill(rim, with: .color(color.opacity(0.9)))
     }
 
     static let track = (0..<16).map { CGPoint(x: 237 + Double($0) * 55.2, y: 95) } + [CGPoint(x: 1119, y: 128)]

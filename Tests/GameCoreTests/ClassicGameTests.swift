@@ -9,10 +9,10 @@ import GameCore
     #expect(rules.team(of: 1) != rules.team(of: 0))
     let game = try ClassicGame(seed: 42)
     #expect(game.marbles.count == 30)
-    #expect(game.drawCount == 77)
+    #expect(game.drawCount == 78)
     #expect(game.topDiscard == nil)
-    #expect(game.handCount(for: 0) == 6)
-    #expect(game.hand(for: 0).count == 6)
+    #expect(game.handCount(for: 0) == 5)
+    #expect(game.hand(for: 0).count == 5)
     #expect(game.hand(for: 1).count == 5)
 }
 @Test func rejectsInvalidCommands() throws {
@@ -40,4 +40,48 @@ import GameCore
         }
         #expect(Set(track).count == track.count)
     }
+}
+
+@Test func replacementDrawBelongsToOutgoingPlayer() throws {
+    var game = try ClassicGame(seed: 42)
+    let incomingHand = game.hand(for: 1)
+    let oldHand = game.hand(for: 0)
+    let move = try #require(game.legalPlays().first)
+    try game.play(move, by: 0)
+    #expect(game.activeSeat == 1)
+    #expect(game.hand(for: 1) == incomingHand)
+    #expect(game.handCount(for: 0) == 5)
+    #expect(game.topDiscard == oldHand[move.cardIndex])
+    #expect(game.drawCount == 77)
+}
+
+@Test func sharedDeckRecyclesDeterministically() throws {
+    var a = try ClassicGame(seed: 42)
+    var b = try ClassicGame(seed: 42)
+    var recycled = false
+    for _ in 0..<300 {
+        if a.winner != nil { break }
+        let seat = a.activeSeat
+        let before = a.drawCount
+        let hand = a.hand(for: seat)
+        let move = try #require(a.legalPlays().first)
+        try a.play(move, by: seat)
+        try b.play(move, by: seat)
+        #expect(a.topDiscard == hand[move.cardIndex])
+        #expect(a.drawCount == b.drawCount)
+        for player in 0..<6 {
+            #expect(a.hand(for: player) == b.hand(for: player))
+            if a.winner == nil { #expect(a.handCount(for: player) == 5) }
+        }
+        if a.winner == nil {
+            if before == 0 {
+                #expect(a.drawCount == 77)
+                recycled = true
+            } else {
+                #expect(a.drawCount == before - 1)
+            }
+        }
+        if recycled { break }
+    }
+    #expect(recycled)
 }

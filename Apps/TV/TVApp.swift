@@ -17,14 +17,14 @@ private struct BoardPreviewScreen: View {
     @State private var errorMessage: String?
     private var active: Int { game?.activeSeat ?? previewActive }
     @State private var showBoard = false
-    private let names = ["Alex", "Mom", "Ethan", "Emma", "Sophie", "Grandpa"]
+    private let names = ["Eric", "Christy", "Sophie", "Isabelle", "Emma", "Charlotte"]
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
 
     var body: some View {
         VStack(spacing: 12) {
             if showBoard {
                 HStack {
-                    Text("Jokers & Marbles").font(.system(size: 42, weight: .bold, design: .serif))
+                    Text("Jokers & Marbles").font(.system(size: 42, weight: .bold, design: .serif)).italic().foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
                     Spacer()
                     Text(game?.winner.map { paired ? "Team \($0 + 1) wins!" : names[$0] + " wins!" } ?? (names[active] + "’s Turn")).font(.title2.bold())
                         .padding(12).background(colors[active].opacity(0.4), in: Capsule())
@@ -41,6 +41,7 @@ private struct BoardPreviewScreen: View {
                     }
                 }
                 Text(game == nil ? "Gameplay preview" : "Local engine test • automatic legal moves • controllers pending").font(.caption)
+                if game != nil { Text("Up next: " + names[(active + 1) % count]).font(.headline) }
                 if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red) }
                 GeometryReader { proxy in
                     let side = min(proxy.size.height, proxy.size.width * 0.65)
@@ -52,7 +53,7 @@ private struct BoardPreviewScreen: View {
                             card(game == nil ? "9♥" : face(game?.topDiscard), label: "Discard pile", color: .red)
                         }
                         ForEach(0..<count, id: \.self) { seat in
-                            let angle = Double.pi / 2 + Double(seat - active) * 2 * Double.pi / Double(count)
+                            let angle = Double.pi / 2 + Double(seat) * 2 * Double.pi / Double(count)
                             VStack(spacing: 3) {
                                 Image(systemName: "person.crop.circle.fill").font(.title2)
                                 Text(names[seat]).font(.headline)
@@ -75,7 +76,7 @@ private struct BoardPreviewScreen: View {
                         if count % 2 == 0 {
                             Button(individual ? "Individual" : "Teams") { individual.toggle() }
                         }
-                        Button("Rotate") { previewActive = (previewActive + 1) % count }
+                        Button("Next player preview") { previewActive = (previewActive + 1) % count }
                         Button("Start game test") { startGame() }
                     } else {
                         Button("Next legal move") { advance() }.disabled(game?.winner != nil)
@@ -139,7 +140,8 @@ private struct BoardPreviewScreen: View {
             Text(face).font(.system(size: 40, weight: .bold))
                 .foregroundStyle(color)
                 .frame(width: 76, height: 100)
-                .background(.white, in: RoundedRectangle(cornerRadius: 8))
+                .background(Color(red: 0.99, green: 0.94, blue: 0.83), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(red: 0.68, green: 0.48, blue: 0.26), lineWidth: 2))
             Text(label).font(.caption)
         }
     }
