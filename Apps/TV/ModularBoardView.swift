@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import GameCore
 
 /// Visual-only renderer of the approved SVG. Joinery and game topology are not yet validated.
@@ -22,8 +23,14 @@ struct ModularBoardView: View {
     }
     private let colors: [Color] = [Color(red: 0.83, green: 0.035, blue: 0.06), Color(red: 0.025, green: 0.32, blue: 0.95), Color(red: 0.025, green: 0.67, blue: 0.20), Color(red: 0.98, green: 0.76, blue: 0.015), Color(red: 0.58, green: 0.08, blue: 0.85), Color(red: 1, green: 0.36, blue: 0.025)]
 
+    private static let mapleTexture: UIImage? = Bundle.main.url(forResource: "maple", withExtension: "jpg").flatMap { UIImage(contentsOfFile: $0.path) }
+
     var body: some View {
         GeometryReader { geo in
+        ZStack {
+        if ApprovedMeshBoard.available {
+            ApprovedMeshBoard(playerCount: playerCount, seatColors: seatColors ?? Array(0..<playerCount), marbles: meshMarbles(size: geo.size))
+        }
         Canvas { context, size in
             guard (3...6).contains(playerCount) else { return }
             let n = Double(playerCount)
@@ -38,6 +45,7 @@ struct ModularBoardView: View {
                 ctx.translateBy(x: -634, y: CGFloat(-485 / tan(.pi / n) - 128))
                 let outline = Self.outline
                 if layer == 0 {
+                if ApprovedMeshBoard.available { continue }
                 if playerCount < 6 {
                     // Keep each piece inside its own angular sector; no adjacent piece can cover its holes.
                     let centerY = CGFloat(485 / tan(.pi / n) + 128)
@@ -53,6 +61,11 @@ struct ModularBoardView: View {
                 edge.translateBy(x: 0, y: 12)
                 edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
                 ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.99, green: 0.87, blue: 0.66), Color(red: 0.91, green: 0.73, blue: 0.48), Color(red: 0.97, green: 0.82, blue: 0.59)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
+                if let texture = Self.mapleTexture {
+                    var wood = ctx
+                    wood.clip(to: outline)
+                    wood.draw(Image(uiImage: texture), in: CGRect(x: 160, y: 60, width: 1030, height: 232))
+                } else {
                 var grain = ctx
                 grain.clip(to: outline)
                 for i in 0..<100 {
@@ -66,10 +79,12 @@ struct ModularBoardView: View {
                     }
                     grain.stroke(line, with: .color(Color(red: 0.47, green: 0.29, blue: 0.13).opacity(Double(i % 5 + 1) * 0.012)), lineWidth: 1)
                 }
+                }
                 ctx.stroke(outline, with: .color(Color(red: 0.65, green: 0.42, blue: 0.22)), lineWidth: 2)
                 ctx.stroke(outline, with: .color(.white.opacity(0.22)), lineWidth: 0.7)
                 continue
                 }
+                if !ApprovedMeshBoard.available {
                 for point in Self.track {
                     ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.brown, .black.opacity(0.8)]), center: point, startRadius: 0, endRadius: 18))
                     ctx.stroke(Self.hole(point), with: .color(.white.opacity(0.35)), lineWidth: 2)
@@ -77,6 +92,7 @@ struct ModularBoardView: View {
                 for point in Self.home + Self.start {
                     ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [color(for: seat).opacity(0.85), .black.opacity(0.85)]), center: CGPoint(x: point.x, y: point.y + 5), startRadius: 0, endRadius: 22))
                     ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
+                }
                 }
                 if let gameMarbles {
                     for (index, marble) in gameMarbles.enumerated() {
@@ -95,7 +111,7 @@ struct ModularBoardView: View {
                             guard mapped.seat % playerCount == seat else { continue }
                             point = mapped.point
                         }
-                        Self.drawMarble(point, color: color(for: marble.seat), context: ctx)
+                        if !ApprovedMeshBoard.available { Self.drawMarble(point, color: color(for: marble.seat), context: ctx) }
                     }
                 } else {
                     for point in Array(Self.start.prefix(3)) + [Self.track[5], Self.home[0]] {
@@ -133,7 +149,7 @@ struct ModularBoardView: View {
                     let radius = min(size.width, size.height) * 0.009
                     context.stroke(Path(ellipseIn: CGRect(x: origin.x-radius, y: origin.y-radius, width: radius*2, height: radius*2)), with: .color(color), lineWidth: 2)
                     context.stroke(Path(ellipseIn: CGRect(x: end.x-radius, y: end.y-radius, width: radius*2, height: radius*2)), with: .color(.yellow), lineWidth: 2)
-                    if progress < 1 {
+                    if progress < 1 && !ApprovedMeshBoard.available {
                         let sphere = Path(ellipseIn: CGRect(x: point.x-radius, y: point.y-radius, width: radius*2, height: radius*2))
                         context.fill(sphere, with: .radialGradient(Gradient(colors: [.white, color, .black]), center: CGPoint(x: point.x-radius/3, y: point.y-radius/3), startRadius: 0, endRadius: radius*1.6))
                     }
@@ -162,6 +178,7 @@ struct ModularBoardView: View {
                 }
             }
         }
+        }
         .accessibilityLabel("\(playerCount)-player modular board")
         .task(id: lastMove?.revision) {
             guard let revision = lastMove?.revision, animatedRevision != revision else { return }
@@ -177,6 +194,33 @@ struct ModularBoardView: View {
                 guard !Task.isCancelled else { return }
             }
         }
+        }
+    }
+
+    private func meshMarbles(size: CGSize) -> [MeshMarble] {
+        guard let gameMarbles else { return [] }
+        return gameMarbles.enumerated().compactMap { index, marble in
+            guard var point = screenPoint(marble, size: size) else { return nil }
+            if progress < 1, let move = lastMove,
+               let stepIndex = move.steps.firstIndex(where: { $0.marble == index }),
+               move.before.indices.contains(index),
+               let origin = screenPoint(move.before[index], size: size) {
+                let route = move.routes.indices.contains(stepIndex) ? move.routes[stepIndex] : []
+                let points = route.compactMap { destinationPoint(move.before[index], destination: $0, size: size) }
+                let path = points.count >= 2 ? points : [origin, point]
+                let lengths = move.routes.map { max(1, $0.count - 1) }
+                let total = max(1, lengths.reduce(0, +))
+                let prior = lengths.prefix(stepIndex).reduce(0, +)
+                let length = lengths.indices.contains(stepIndex) ? lengths[stepIndex] : 1
+                let local = min(1, max(0, (progress * CGFloat(total) - CGFloat(prior)) / CGFloat(length)))
+                let distance = local * CGFloat(path.count - 1)
+                let segment = min(path.count - 2, Int(distance))
+                let fraction = distance - CGFloat(segment)
+                let a = path[segment], b = path[segment + 1]
+                point = CGPoint(x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction)
+            }
+            let colorIndex = seatColors.flatMap { $0.indices.contains(marble.seat) ? $0[marble.seat] : nil } ?? marble.seat
+            return MeshMarble(point: point, color: colorIndex)
         }
     }
 
