@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import MultipeerConnectivity
 import GameCore
 
@@ -13,7 +14,7 @@ enum SessionCommand: Codable {
 }
 
 enum SessionReply: Codable {
-    case identity(UUID)
+    case identity(player: UUID, token: UUID)
     case state(PublicSession, PrivateSession?)
     case error(String)
 }
