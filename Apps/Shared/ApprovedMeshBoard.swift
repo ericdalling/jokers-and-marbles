@@ -81,7 +81,7 @@ struct ApprovedMeshBoard: View {
     let playerCount: Int
     let seatColors: [Int]
     private static let asset = ApprovedGLB()
-    static var available: Bool { asset?.piece(color: .red) != nil }
+    static let available: Bool = asset?.piece(color: .red) != nil
     private let palette: [UIColor] = [.systemRed, .systemBlue, .systemGreen, .systemYellow, .systemPurple, .systemOrange]
     var body: some View {
         GeometryReader { geo in
