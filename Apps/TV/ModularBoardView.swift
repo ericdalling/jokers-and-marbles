@@ -1,9 +1,11 @@
 import SwiftUI
+import GameCore
 
 /// Visual-only renderer of the approved SVG. Joinery and game topology are not yet validated.
 struct ModularBoardView: View {
     let playerCount: Int
     var activePlayer: Int = 0
+    var gameMarbles: [GameMarble]? = nil
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
 
     var body: some View {
@@ -32,14 +34,35 @@ struct ModularBoardView: View {
                     ctx.fill(Self.hole(point), with: .color(colors[seat].opacity(0.55)))
                     ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
                 }
-                // Preview fixture: exactly five marbles per seat.
-                for point in Array(Self.start.prefix(3)) + [Self.track[5], Self.home[0]] {
-                    let center = CGPoint(x: point.x - 5, y: point.y - 6)
-                    ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.white, colors[seat], .black]), center: center, startRadius: 0, endRadius: 28))
+                if let gameMarbles {
+                    for marble in gameMarbles {
+                        let point: CGPoint
+                        switch marble.position {
+                        case .start:
+                            guard marble.seat == seat, Self.start.indices.contains(marble.number) else { continue }
+                            point = Self.start[marble.number]
+                        case .home(let index):
+                            guard marble.seat == seat, Self.home.indices.contains(index) else { continue }
+                            point = Self.home[index]
+                        case .track(let index):
+                            guard index >= 0, index / Self.track.count == seat else { continue }
+                            point = Self.track[index % Self.track.count]
+                        }
+                        Self.drawMarble(point, color: colors[marble.seat], context: ctx)
+                    }
+                } else {
+                    for point in Array(Self.start.prefix(3)) + [Self.track[5], Self.home[0]] {
+                        Self.drawMarble(point, color: colors[seat], context: ctx)
+                    }
                 }
             }
         }
         .accessibilityLabel("\(playerCount)-player modular board preview")
+    }
+
+    private static func drawMarble(_ point: CGPoint, color: Color, context: GraphicsContext) {
+        let center = CGPoint(x: point.x - 5, y: point.y - 6)
+        context.fill(hole(point), with: .radialGradient(Gradient(colors: [.white, color, .black]), center: center, startRadius: 0, endRadius: 28))
     }
 
     static let track = (0..<16).map { CGPoint(x: 237 + Double($0) * 55.2, y: 95) } + [CGPoint(x: 1119, y: 128)]
