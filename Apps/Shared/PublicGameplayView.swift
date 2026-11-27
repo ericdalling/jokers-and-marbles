@@ -7,7 +7,7 @@ struct PublicGameplayView: View {
     @State private var drawing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
-    private var active: Int { state.activeSeat ?? 0 }
+    private var active: Int { state.presentingMove ? (state.lastMove?.seat ?? state.activeSeat ?? 0) : (state.activeSeat ?? 0) }
     private func member(_ seat: Int) -> LobbyMember? {
         guard state.seats.indices.contains(seat) else { return nil }
         return state.members.first { $0.id == state.seats[seat] }
@@ -52,7 +52,7 @@ struct PublicGameplayView: View {
                                             .offset(x: 30, y: -35).rotationEffect(.degrees(12))
                                     }
                                 }
-                            Text(state.discard.map { String(describing: $0) } ?? "—").font(.caption).foregroundStyle(.black).padding(8).background(.white, in: RoundedRectangle(cornerRadius: 6))
+                            if let card = state.discard { PremiumCardView(card: card).frame(width: 44, height: 62) } else { RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 44, height: 62) }
                         }
                         Text("Draw: \(state.drawCount ?? 0)").font(.caption)
                     }
