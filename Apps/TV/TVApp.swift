@@ -17,12 +17,15 @@ private struct BoardPreviewScreen: View {
     @State private var errorMessage: String?
     private var active: Int { game?.activeSeat ?? previewActive }
     @State private var showBoard = false
+    @State private var showLobby = false
     private let names = ["Alex", "Mom", "Ethan", "Emma", "Sophie", "Grandpa"]
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
 
     var body: some View {
         VStack(spacing: 12) {
-            if showBoard {
+            if showLobby {
+                HostLobbyView { showLobby = false }
+            } else if showBoard {
                 HStack {
                     Text("Jokers & Marbles").font(.system(size: 42, weight: .bold, design: .serif))
                     Spacer()
@@ -86,6 +89,7 @@ private struct BoardPreviewScreen: View {
                 }
             } else {
                 Image("LandingBoard").resizable().scaledToFit()
+                Button("Host game") { showLobby = true }
                 Button("Preview gameplay") { showBoard = true }
             }
         }
