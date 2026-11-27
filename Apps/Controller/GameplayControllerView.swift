@@ -11,7 +11,8 @@ struct GameplayControllerView: View {
     @State private var selectedMove: GamePlay?
     @State private var zoom: CGFloat = 1
     @State private var submitted = false
-    private var active: Bool { personal.seat == state.activeSeat && state.winner == nil }
+    @State private var replacementGlow = false
+    private var active: Bool { personal.seat == state.activeSeat && state.winner == nil && !state.presentingMove }
     private var member: LobbyMember? { state.members.first { $0.id == player } }
     private var options: [GamePlay] { personal.legalPlays.filter { $0.cardIndex == selectedCard } }
     private var filtered: [GamePlay] { options.filter { selectedMarble == nil || $0.steps.first?.marble == selectedMarble } }
@@ -24,7 +25,7 @@ struct GameplayControllerView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     Text(member?.name ?? "Player").font(.system(.title, design: .serif).bold())
-                    Text(state.winner != nil ? "Game complete" : active ? "Your turn" : "Waiting for " + turnName)
+                    Text(state.winner != nil ? "Game complete" : state.presentingMove ? "Resolving move…" : active ? "Your turn" : "Waiting for " + turnName)
                         .font(.headline).padding(10).background(.orange.opacity(active ? 0.35 : 0.12), in: Capsule())
                     if let partner = state.members.first(where: { $0.id == member?.partner }) {
                         Text("Teammate: " + partner.name).font(.caption)
@@ -38,6 +39,12 @@ struct GameplayControllerView: View {
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
         .background(LinearGradient(colors: [.brown.opacity(0.7), .black], startPoint: .topLeading, endPoint: .bottomTrailing))
         .onChange(of: state.revision) { _, _ in selectedCard = nil; selectedMarble = nil; selectedMove = nil; submitted = false }
+        .task(id: state.revision) {
+            guard !state.presentingMove, let move = state.lastMove, move.seat == personal.seat, state.winner == nil else { return }
+            replacementGlow = true
+            try? await Task.sleep(for: .seconds(1))
+            replacementGlow = false
+        }
     }
     private var board: some View {
         ModularBoardView(playerCount: state.capacity, activePlayer: state.activeSeat ?? 0, gameMarbles: state.marbles,
@@ -66,7 +73,7 @@ struct GameplayControllerView: View {
                         Text(String(describing: card)).font(.system(.caption, design: .serif).bold())
                             .minimumScaleFactor(0.5).lineLimit(2).frame(maxWidth: .infinity).frame(height: 82)
                             .foregroundStyle(.black).background(Color(red: 0.98, green: 0.94, blue: 0.82), in: RoundedRectangle(cornerRadius: 8))
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selectedCard == index ? .orange : .brown, lineWidth: selectedCard == index ? 4 : 1))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? .orange : .brown, lineWidth: selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? 4 : 1))
                     }.buttonStyle(.plain).disabled(!active || submitted || !personal.legalPlays.contains { $0.cardIndex == index })
                 }
             }
