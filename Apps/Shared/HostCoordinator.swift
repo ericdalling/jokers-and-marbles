@@ -7,6 +7,7 @@ final class HostCoordinator: ObservableObject {
     let transport = SessionTransport()
     @Published private(set) var state: PublicSession?
     @Published private(set) var roomCode = ""
+    @Published private(set) var roomSecret = ""
     @Published private(set) var error = ""
     @Published private(set) var connectedPlayers: Set<UUID> = []
     @Published private(set) var pendingConnection = false
@@ -36,6 +37,7 @@ final class HostCoordinator: ObservableObject {
             host = try HostSession(capacity: capacity, individual: individual)
             identities = [:]; tokens = [:]
             roomCode = String(format: "%06d", Int.random(in: 0...999999))
+            roomSecret = UUID().uuidString + UUID().uuidString
             transport.host(code: roomCode)
             publish()
         } catch { self.error = String(describing: error) }
@@ -60,6 +62,9 @@ final class HostCoordinator: ObservableObject {
         do {
             let command = try JSONDecoder().decode(SessionCommand.self, from: data)
             switch command {
+            case let .challenge(nonce):
+                transport.send(SessionReply.proof(RoomProof.make(secret: roomSecret, nonce: nonce)), to: peer)
+                return
             case let .join(name, color):
                 guard identities[peer] == nil else { throw HostSessionError.unauthorized }
                 let id = UUID(), token = UUID()
