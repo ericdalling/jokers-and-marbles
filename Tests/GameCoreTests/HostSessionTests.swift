@@ -23,6 +23,14 @@ import GameCore
     let move = try #require(host.privateState(for: ids[0]).legalPlays.first)
     try host.play(id: ids[0], expectedRevision: state.revision, move: move)
     #expect(host.publicState().activeSeat == 1)
+    #expect(host.publicState().presentingMove)
+    #expect(try host.privateState(for: ids[1]).legalPlays.isEmpty)
+    let event = try #require(host.publicState().lastMove)
+    #expect(event.routes.count == move.steps.count)
+    for (route, step) in zip(event.routes, move.steps) { #expect(route.last == step.destination) }
+    host.finishPresentation()
+    #expect(!host.publicState().presentingMove)
+    #expect(!(try host.privateState(for: ids[1]).legalPlays.isEmpty))
     do {
         try host.play(id: ids[0], expectedRevision: state.revision, move: move)
         Issue.record("Duplicate move accepted")
