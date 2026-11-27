@@ -12,7 +12,7 @@ public struct GameRules: Codable, Equatable, Sendable {
     public let deck: DeckConfiguration
     public let powers: [CardRank: CardPower]
     public static let classic = GameRules(version: 1, seats: 6, teamCount: 3,
-        marblesPerSeat: 5, spacesPerSeat: 18, handSize: 5, deck: DeckConfiguration(),
+        marblesPerSeat: 5, spacesPerSeat: 17, handSize: 5, deck: DeckConfiguration(),
         powers: [.ace: .enterOrForward(1), .two: .forward(2), .three: .forward(3),
                  .four: .forward(4), .five: .forward(5), .six: .forward(6),
                  .seven: .splitForward(7), .eight: .backward(8), .nine: .forward(9),
