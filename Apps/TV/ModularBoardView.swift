@@ -7,6 +7,12 @@ struct ModularBoardView: View {
     var activePlayer: Int = 0
     var gameMarbles: [GameMarble]? = nil
     var seatColors: [Int]? = nil
+    var selectableMarbles: [Int] = []
+    var selectedMarble: Int? = nil
+    var onMarble: ((Int) -> Void)? = nil
+    var destinations: [MarbleStep] = []
+    var onDestination: ((MarbleStep) -> Void)? = nil
+    var lastMove: PublicMove? = nil
     private func color(for seat: Int) -> Color {
         let index = seatColors.flatMap { $0.indices.contains(seat) ? $0[seat] : nil } ?? seat
         return colors[colors.indices.contains(index) ? index : 0]
@@ -14,6 +20,7 @@ struct ModularBoardView: View {
     private let colors: [Color] = [Color(red: 0.83, green: 0.035, blue: 0.06), Color(red: 0.025, green: 0.32, blue: 0.95), Color(red: 0.025, green: 0.67, blue: 0.20), Color(red: 0.98, green: 0.76, blue: 0.015), Color(red: 0.58, green: 0.08, blue: 0.85), Color(red: 1, green: 0.36, blue: 0.025)]
 
     var body: some View {
+        GeometryReader { geo in
         Canvas { context, size in
             guard (3...6).contains(playerCount) else { return }
             let n = Double(playerCount)
@@ -62,7 +69,52 @@ struct ModularBoardView: View {
                 }
             }
         }
-        .accessibilityLabel("\(playerCount)-player modular board preview")
+        .overlay {
+            if let gameMarbles {
+                ForEach(selectableMarbles, id: \.self) { index in
+                    if gameMarbles.indices.contains(index), let point = screenPoint(gameMarbles[index], size: geo.size) {
+                        Circle().strokeBorder(selectedMarble == index ? .yellow : .white.opacity(0.8), lineWidth: 2)
+                            .frame(width: 24, height: 24).contentShape(Circle())
+                            .position(point).onTapGesture { onMarble?(index) }
+                    }
+                }
+                ForEach(destinations, id: \.self) { step in
+                    if gameMarbles.indices.contains(step.marble) {
+                        var marble = gameMarbles[step.marble]
+                        let point = destinationPoint(marble, destination: step.destination, size: geo.size)
+                        if let point {
+                            Circle().fill(.yellow.opacity(0.35)).overlay(Circle().stroke(.yellow, lineWidth: 2))
+                                .frame(width: 26, height: 26).position(point)
+                                .onTapGesture { onDestination?(step) }
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityLabel("\(playerCount)-player modular board")
+        }
+    }
+
+    private func destinationPoint(_ marble: GameMarble, destination: MarblePosition, size: CGSize) -> CGPoint? {
+        var copy = marble; copy.position = destination
+        return screenPoint(copy, size: size)
+    }
+
+    private func screenPoint(_ marble: GameMarble, size: CGSize) -> CGPoint? {
+        guard (3...6).contains(playerCount) else { return nil }
+        let seat: Int, point: CGPoint
+        switch marble.position {
+        case .start: seat = marble.seat; guard Self.start.indices.contains(marble.number) else { return nil }; point = Self.start[marble.number]
+        case .home(let i): seat = marble.seat; guard Self.home.indices.contains(i) else { return nil }; point = Self.home[i]
+        case .track(let i): guard i >= 0 else { return nil }; seat = i / Self.track.count; point = Self.track[i % Self.track.count]
+        }
+        let n = Double(playerCount)
+        let extent = 970 / (2 * sin(.pi / n)) + 160
+        let scale = min(size.width, size.height) / CGFloat(2 * extent)
+        let angle = .pi + Double(seat) * 2 * .pi / n
+        let x = point.x - 634, y = point.y - CGFloat(485 / tan(.pi / n) + 128)
+        return CGPoint(x: size.width / 2 + scale * (x * cos(angle) - y * sin(angle)),
+                       y: size.height / 2 + scale * (x * sin(angle) + y * cos(angle)))
     }
 
     private static func drawMarble(_ point: CGPoint, color: Color, context: GraphicsContext) {
