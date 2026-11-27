@@ -182,6 +182,40 @@ public struct ClassicGame: Sendable {
         }
         return plays
     }
+    /// Reconstructs the exact legal route before applying a validated play.
+    public func movementRoutes(for play: GamePlay) -> [[MarblePosition]] {
+        guard legalPlays().contains(play) else { return [] }
+        var copy = self
+        let card = hands[activeSeat][play.cardIndex]
+        let backward: Bool
+        if case .backward = rules.power(of: card) { backward = true } else { backward = false }
+        var routes: [[MarblePosition]] = []
+        for step in play.steps {
+            let marble = copy.marbles[step.marble]
+            var route = [marble.position]
+            if marble.position == .start || card == .joker {
+                route.append(step.destination)
+            } else {
+                var position = marble.position
+                for _ in 0..<rules.trackLength {
+                    if position == step.destination { break }
+                    switch position {
+                    case .start: break
+                    case .track(let t):
+                        let next = (t + (backward ? -1 : 1) + rules.trackLength) % rules.trackLength
+                        position = !backward && next == rules.entry(of: marble.seat) ? .home(0) : .track(next)
+                    case .home(let h): position = .home(h + 1)
+                    }
+                    route.append(position)
+                }
+                if route.last != step.destination { route = [marble.position, step.destination] }
+            }
+            routes.append(route)
+            copy.apply(step)
+        }
+        return routes
+    }
+
     public mutating func play(_ play: GamePlay, by seat: Int) throws {
         guard winner == nil else { throw ClassicGameError.finished }
         guard seat == activeSeat else { throw ClassicGameError.wrongTurn }
