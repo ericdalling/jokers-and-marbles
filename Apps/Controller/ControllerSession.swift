@@ -17,7 +17,7 @@ final class ControllerSession: ObservableObject {
             guard let self, peer == self.target else { return }
             self.status = connected ? "Connected" : "Disconnected — reconnect to resume"
             if connected, let token = self.token { self.send(.resume(token)) }
-            if !connected { self.personal = nil }
+            if !connected { self.personal = nil; self.state = nil }
         }
         transport.onData = { [weak self] data, peer in
             guard let self, peer == self.target,
@@ -105,9 +105,9 @@ struct ControllerLobbyView: View {
                         Picker("Marble color", selection: $color) {
                             ForEach(0..<6) { i in Circle().fill(colors[i]).frame(width: 24, height: 24).tag(i) }
                         }
-                        Button("Join") { client.send(.join(name: name, color: color)) }.disabled(name.isEmpty)
+                        Button("Join") { client.send(.join(name: name, color: color)) }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil)
                     }
-                    if let hostMode { Button("Switch to Host Mode", action: hostMode) }
+                    if let hostMode, client.player == nil { Button("Switch to Host Mode") { client.leave(); hostMode() } }
                 }
                 Text(client.status)
                 Button("Reconnect") { client.browse(code) }.disabled(code.count != 6)
