@@ -19,13 +19,23 @@ struct ModularBoardView: View {
                 ctx.rotate(by: .degrees(180 + Double(seat - activePlayer) * 360 / n))
                 ctx.translateBy(x: -634, y: CGFloat(-485 / tan(.pi / n) - 128))
                 let outline = Self.outline
-                ctx.fill(outline, with: .color(Color(red: 0.875, green: 0.718, blue: 0.518)))
+                var edge = ctx
+                edge.translateBy(x: 0, y: 12)
+                edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
+                ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.98, green: 0.79, blue: 0.52), Color(red: 0.78, green: 0.48, blue: 0.23), Color(red: 0.95, green: 0.71, blue: 0.43)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
                 ctx.stroke(outline, with: .color(.brown), lineWidth: 2)
                 for point in Self.track {
-                    ctx.fill(Self.hole(point), with: .color(.brown))
+                    ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.brown, .black.opacity(0.8)]), center: point, startRadius: 0, endRadius: 18))
+                    ctx.stroke(Self.hole(point), with: .color(.white.opacity(0.35)), lineWidth: 2)
                 }
                 for point in Self.home + Self.start {
-                    ctx.fill(Self.hole(point), with: .color(colors[seat]))
+                    ctx.fill(Self.hole(point), with: .color(colors[seat].opacity(0.55)))
+                    ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
+                }
+                // Preview fixture: exactly five marbles per seat.
+                for point in Array(Self.start.prefix(3)) + [Self.track[5], Self.home[0]] {
+                    let center = CGPoint(x: point.x - 5, y: point.y - 6)
+                    ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.white, colors[seat], .black]), center: center, startRadius: 0, endRadius: 28))
                 }
             }
         }
