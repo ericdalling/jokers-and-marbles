@@ -11,6 +11,9 @@ final class ControllerSession: ObservableObject {
     @Published var room = ""
     private var target: MCPeerID?
     private var token: UUID?
+    private var secret: String?
+    private var nonce: UUID?
+    private var verified = false
     private var retry: DispatchWorkItem?
     private var retryCount = 0
     private var lastHost: MCPeerID?
@@ -31,22 +34,35 @@ final class ControllerSession: ObservableObject {
         transport.onConnection = { [weak self] peer, connected in
             guard let self, peer == self.target else { return }
             self.status = connected ? "Connected" : "Disconnected — reconnect to resume"
-            if connected { self.retry?.cancel(); self.retryCount = 0; if let token = self.token { self.send(.resume(token)) } }
+            if connected {
+                self.retry?.cancel(); self.retryCount = 0
+                self.verified = self.secret == nil
+                if self.secret != nil {
+                    let nonce = UUID(); self.nonce = nonce
+                    self.transport.send(SessionCommand.challenge(nonce), to: peer)
+                } else if let token = self.token { self.send(.resume(token)) }
+            }
             if !connected { self.personal = nil; self.state = nil; self.scheduleReconnect() }
         }
         transport.onData = { [weak self] data, peer in
             guard let self, peer == self.target,
                   let reply = try? JSONDecoder().decode(SessionReply.self, from: data) else { return }
             switch reply {
+            case let .proof(proof):
+                guard let secret = self.secret, let nonce = self.nonce, proof == RoomProof.make(secret: secret, nonce: nonce) else { self.status = "Host verification failed"; self.transport.stop(); return }
+                self.verified = true; self.nonce = nil
+                if let token = self.token { self.send(.resume(token)) }
             case let .identity(player, token):
-                self.player = player; self.token = token
+                guard self.verified else { return }; self.player = player; self.token = token
             case let .state(state, personal):
-                self.state = state; self.personal = personal
+                guard self.verified else { return }; self.state = state; self.personal = personal
             case let .error(message): self.status = message
             }
         }
     }
-    func browse(_ code: String) {
+    func browse(_ code: String, secret: String? = nil) {
+        if room != code || secret != nil { self.secret = secret }
+        verified = false
         retry?.cancel(); retryCount = 0
         if room != code { token = nil; player = nil; lastHost = nil }
         room = code; target = nil; state = nil; personal = nil
@@ -57,7 +73,7 @@ final class ControllerSession: ObservableObject {
         target = peer; lastHost = peer; transport.connect(peer)
     }
     func send(_ command: SessionCommand) {
-        guard let target, transport.connected.contains(target) else { status = "Not connected"; return }
+        guard verified, let target, transport.connected.contains(target) else { status = "Not connected"; return }
         transport.send(command, to: target)
     }
     func leave() {
@@ -132,7 +148,10 @@ struct ControllerLobbyView: View {
                 Text(client.status)
                 Button("Reconnect") { client.browse(code) }.disabled(code.count != 6)
                 Button("Leave room", role: .destructive) { client.leave() }
-            }.navigationTitle("Jokers & Marbles")
+            }.scrollContentBackground(.hidden)
+            .background(LinearGradient(colors: [Color(red: 0.27, green: 0.14, blue: 0.07), Color(red: 0.09, green: 0.04, blue: 0.02)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .preferredColorScheme(.dark).tint(.orange)
+            .navigationTitle("Jokers & Marbles")
             .sheet(isPresented: $scan) { RoomScanner { value in scan = false; joinURL(value) } }
             .onOpenURL { joinURL($0.absoluteString) }
         }
@@ -141,7 +160,7 @@ struct ControllerLobbyView: View {
         guard let url = URLComponents(string: value), url.scheme == "jokersmarbles", url.host == "join",
               let room = url.queryItems?.first(where: { $0.name == "code" })?.value,
               room.count == 6, room.allSatisfy(\.isNumber) else { return }
-        code = room; client.browse(room)
+        code = room; client.browse(room, secret: url.queryItems?.first(where: { $0.name == "secret" })?.value)
     }
 }
 
