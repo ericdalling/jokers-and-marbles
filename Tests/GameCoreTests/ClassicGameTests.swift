@@ -9,10 +9,10 @@ import GameCore
     #expect(rules.team(of: 1) != rules.team(of: 0))
     let game = try ClassicGame(seed: 42)
     #expect(game.marbles.count == 30)
-    #expect(game.drawCount == 77)
+    #expect(game.drawCount == 78)
     #expect(game.topDiscard == nil)
-    #expect(game.handCount(for: 0) == 6)
-    #expect(game.hand(for: 0).count == 6)
+    #expect(game.handCount(for: 0) == 5)
+    #expect(game.hand(for: 0).count == 5)
     #expect(game.hand(for: 1).count == 5)
 }
 @Test func rejectsInvalidCommands() throws {
@@ -40,4 +40,17 @@ import GameCore
         }
         #expect(Set(track).count == track.count)
     }
+}
+
+@Test func replacementDrawBelongsToOutgoingPlayer() throws {
+    var game = try ClassicGame(seed: 42)
+    let incomingHand = game.hand(for: 1)
+    let oldHand = game.hand(for: 0)
+    let move = try #require(game.legalPlays().first)
+    try game.play(move, by: 0)
+    #expect(game.activeSeat == 1)
+    #expect(game.hand(for: 1) == incomingHand)
+    #expect(game.handCount(for: 0) == 5)
+    #expect(game.topDiscard == oldHand[move.cardIndex])
+    #expect(game.drawCount == 77)
 }
