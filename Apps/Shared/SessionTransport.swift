@@ -10,6 +10,13 @@ enum RoomProof {
     }
 }
 
+struct RoomAdmission: Codable {
+    let code: String
+    let nonce: UUID
+    let proof: String?
+    let resumeToken: UUID?
+}
+
 enum SessionCommand: Codable {
     case challenge(UUID)
     case join(name: String, color: Int)
@@ -41,7 +48,7 @@ final class SessionTransport: NSObject, ObservableObject {
     private func roomTag(_ code: String) -> String {
         SHA256.hash(data: Data(("jokers-room-v1:" + code).utf8)).map { String(format: "%02x", $0) }.joined()
     }
-    var onInvitation: ((MCPeerID, @escaping (Bool) -> Void) -> Void)?
+    var onInvitation: ((MCPeerID, RoomAdmission, @escaping (Bool) -> Void) -> Void)?
     var onData: ((Data, MCPeerID) -> Void)?
     var onConnection: ((MCPeerID, Bool) -> Void)?
 
@@ -68,9 +75,12 @@ final class SessionTransport: NSObject, ObservableObject {
         browser.startBrowsingForPeers()
     }
 
-    func connect(_ target: MCPeerID) {
+    func connect(_ target: MCPeerID, secret: String? = nil, token: UUID? = nil) {
         guard codes[target] == roomCode else { return }
-        browser?.invitePeer(target, to: session, withContext: Data(roomCode.utf8), timeout: 20)
+        let nonce = UUID()
+        let admission = RoomAdmission(code: roomCode, nonce: nonce, proof: secret.map { RoomProof.make(secret: $0, nonce: nonce) }, resumeToken: token)
+        guard let context = try? JSONEncoder().encode(admission) else { return }
+        browser?.invitePeer(target, to: session, withContext: context, timeout: 20)
     }
 
     func send<T: Encodable>(_ value: T, to target: MCPeerID) {
@@ -89,9 +99,10 @@ final class SessionTransport: NSObject, ObservableObject {
 extension SessionTransport: MCNearbyServiceAdvertiserDelegate, MCNearbyServiceBrowserDelegate, MCSessionDelegate {
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         DispatchQueue.main.async {
-            let accepted = context == Data(self.roomCode.utf8) && self.session.connectedPeers.count < 6
-            guard accepted, let approve = self.onInvitation else { invitationHandler(false, nil); return }
-            approve(peerID) { allowed in invitationHandler(allowed, allowed ? self.session : nil) }
+            guard let context, let admission = try? JSONDecoder().decode(RoomAdmission.self, from: context),
+                  admission.code == self.roomCode, self.session.connectedPeers.count < 6,
+                  let approve = self.onInvitation else { invitationHandler(false, nil); return }
+            approve(peerID, admission) { allowed in invitationHandler(allowed, allowed ? self.session : nil) }
         }
     }
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
