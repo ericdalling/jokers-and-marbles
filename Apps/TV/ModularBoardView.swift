@@ -76,13 +76,23 @@ struct ModularBoardView: View {
         .overlay {
             Canvas { context, size in
                 guard let move = lastMove, let gameMarbles else { return }
-                for step in move.steps {
+                for (stepIndex, step) in move.steps.enumerated() {
                     guard move.before.indices.contains(step.marble), gameMarbles.indices.contains(step.marble),
                           let origin = screenPoint(move.before[step.marble], size: size),
                           let end = screenPoint(gameMarbles[step.marble], size: size) else { continue }
                     let color = color(for: gameMarbles[step.marble].seat)
-                    let point = CGPoint(x: origin.x + (end.x - origin.x) * progress, y: origin.y + (end.y - origin.y) * progress)
-                    var trail = Path(); trail.move(to: origin); trail.addLine(to: point)
+                    let route = move.routes.indices.contains(stepIndex) ? move.routes[stepIndex] : []
+                    let points = route.compactMap { destinationPoint(move.before[step.marble], destination: $0, size: size) }
+                    let path = points.count >= 2 ? points : [origin, end]
+                    let local = min(1, max(0, progress * CGFloat(move.steps.count) - CGFloat(stepIndex)))
+                    let distance = local * CGFloat(path.count - 1)
+                    let segment = min(path.count - 2, Int(distance))
+                    let fraction = distance - CGFloat(segment)
+                    let a = path[segment], b = path[segment + 1]
+                    let point = CGPoint(x: a.x + (b.x-a.x)*fraction, y: a.y + (b.y-a.y)*fraction)
+                    var trail = Path(); trail.move(to: origin)
+                    for p in path.prefix(segment + 1) { trail.addLine(to: p) }
+                    trail.addLine(to: point)
                     context.stroke(trail, with: .color(color.opacity(0.55)), style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     let radius = min(size.width, size.height) * 0.009
                     context.stroke(Path(ellipseIn: CGRect(x: origin.x-radius, y: origin.y-radius, width: radius*2, height: radius*2)), with: .color(color), lineWidth: 2)
@@ -124,8 +134,9 @@ struct ModularBoardView: View {
             progress = 0
             try? await Task.sleep(for: .milliseconds(700))
             guard !Task.isCancelled else { return }
-            for frame in 1...60 {
-                progress = CGFloat(frame) / 60
+            let frames = max(30, (lastMove?.routes.reduce(0) { $0 + max(1, $1.count - 1) } ?? 1) * 12)
+            for frame in 1...frames {
+                progress = CGFloat(frame) / CGFloat(frames)
                 try? await Task.sleep(for: .milliseconds(30))
                 guard !Task.isCancelled else { return }
             }
