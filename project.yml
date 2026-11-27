@@ -14,6 +14,12 @@ targets:
     dependencies:
       - package: GameCore
         product: GameCore
+    info:
+      path: Config/Controller-Info.plist
+      properties:
+        NSLocalNetworkUsageDescription: Discover and connect to your local Jokers and Marbles game.
+        NSBonjourServices:
+          - _jokersmarbles._tcp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ericdalling.jokersandmarbles.controller
@@ -33,6 +39,12 @@ targets:
     dependencies:
       - package: GameCore
         product: GameCore
+    info:
+      path: Config/TV-Info.plist
+      properties:
+        NSLocalNetworkUsageDescription: Discover and connect to your local Jokers and Marbles game.
+        NSBonjourServices:
+          - _jokersmarbles._tcp
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: BrandAssets
