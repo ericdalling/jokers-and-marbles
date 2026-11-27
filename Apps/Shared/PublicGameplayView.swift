@@ -34,7 +34,7 @@ struct PublicGameplayView: View {
                 }.padding(14).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
                 ZStack {
                     ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
-                                     seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 })
+                                     seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove)
                     VStack(spacing: 5) {
                         Text("Jokers & Marbles").font(.system(.caption, design: .serif).italic())
                         HStack {
