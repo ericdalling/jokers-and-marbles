@@ -10,7 +10,7 @@ targets:
   JokersController:
     type: application
     platform: iOS
-    sources: [Apps/Controller, Apps/Shared]
+    sources: [Apps/Controller, Apps/Shared, Apps/TV/ModularBoardView.swift]
     dependencies:
       - package: GameCore
         product: GameCore
