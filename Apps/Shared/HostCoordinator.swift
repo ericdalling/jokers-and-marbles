@@ -32,16 +32,20 @@ final class HostCoordinator: ObservableObject {
         }
     }
 
-    func open(capacity: Int, individual: Bool) {
+    func open() {
         do {
             transport.stop()
-            host = try HostSession(capacity: capacity, individual: individual)
+            host = HostSession()
             identities = [:]; tokens = [:]
             roomCode = String(format: "%06d", Int.random(in: 0...999999))
             roomSecret = UUID().uuidString + UUID().uuidString
             transport.host(code: roomCode)
             publish()
         } catch { self.error = String(describing: error) }
+    }
+
+    func configureTeams(_ enabled: Bool) {
+        do { try host?.configureTeams(enabled); publish() } catch { self.error = String(describing: error) }
     }
 
     func start() {
@@ -92,8 +96,19 @@ final class HostCoordinator: ObservableObject {
             }
             host = current
             publish()
-            if current.publicState().presentingMove, presentation == nil {
-                let routes = current.publicState().lastMove?.routes ?? []
+
+        } catch {
+            transport.send(SessionReply.error(String(describing: error)), to: peer)
+        }
+    }
+
+    private func publish() {
+        guard let host else { return }
+        connectedPlayers = Set(identities.values).union(host.publicState().members.filter { $0.isBot }.map { $0.id })
+        let snapshot = host.publicState()
+        state = snapshot
+            if snapshot.presentingMove, presentation == nil {
+                let routes = snapshot.lastMove?.routes ?? []
                 let frames = max(30, routes.reduce(0) { $0 + max(1, $1.count - 1) } * 12)
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
@@ -104,16 +119,15 @@ final class HostCoordinator: ObservableObject {
                 presentation = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.4 + Double(frames) * 0.03, execute: work)
             }
-        } catch {
-            transport.send(SessionReply.error(String(describing: error)), to: peer)
+        if host.botTurn, presentation == nil {
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.presentation = nil
+                do { try self.host?.playBot(); self.publish() } catch { self.error = String(describing: error) }
+            }
+            presentation = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
         }
-    }
-
-    private func publish() {
-        guard let host else { return }
-        connectedPlayers = Set(identities.values)
-        let snapshot = host.publicState()
-        state = snapshot
         for peer in transport.connected {
             let personal = identities[peer].flatMap { try? host.privateState(for: $0) }
             transport.send(SessionReply.state(snapshot, personal), to: peer)

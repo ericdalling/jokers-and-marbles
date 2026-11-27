@@ -10,6 +10,7 @@ public struct LobbyMember: Codable, Equatable, Sendable, Identifiable {
     public let color: Int
     public var ready: Bool
     public var partner: UUID?
+    public var isBot: Bool = false
 }
 
 public struct TeamInvitation: Codable, Equatable, Sendable {
@@ -49,8 +50,9 @@ public struct PrivateSession: Codable, Sendable {
 }
 
 public struct HostSession: Sendable {
-    public let capacity: Int
-    public let individual: Bool
+    public private(set) var capacity: Int
+    public private(set) var individual: Bool
+    private var flexible = false
     private var members: [LobbyMember] = []
     private var invitations: [TeamInvitation] = []
     private var seats: [UUID] = []
@@ -67,6 +69,16 @@ public struct HostSession: Sendable {
         self.individual = individual
     }
 
+    public init() { capacity = 6; individual = true; flexible = true }
+
+    public mutating func configureTeams(_ enabled: Bool) throws {
+        guard flexible, game == nil, !enabled || [4, 6].contains(members.count) else { throw HostSessionError.invalidConfiguration }
+        individual = !enabled
+        invitations = []
+        for i in members.indices { members[i].partner = nil; members[i].ready = false }
+        revision += 1
+    }
+
     public mutating func join(id: UUID, name: String, color: Int) throws {
         guard game == nil else { throw HostSessionError.alreadyStarted }
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -75,6 +87,7 @@ public struct HostSession: Sendable {
             throw HostSessionError.unavailable
         }
         members.append(LobbyMember(id: id, name: name, color: color, ready: false, partner: nil))
+        if flexible && ![4, 6].contains(members.count) { individual = true; invitations = []; for i in members.indices { members[i].partner = nil } }
         revision += 1
     }
 
@@ -131,7 +144,15 @@ public struct HostSession: Sendable {
 
     public mutating func start(seed: UInt64) throws {
         guard game == nil else { throw HostSessionError.alreadyStarted }
-        guard members.count == capacity, members.allSatisfy({ $0.ready }) else { throw HostSessionError.notReady }
+        guard !members.isEmpty, members.allSatisfy({ $0.ready }) else { throw HostSessionError.notReady }
+        if flexible {
+            capacity = max(3, members.count)
+            while members.count < capacity {
+                guard let color = (0..<6).first(where: { c in !members.contains { $0.color == c } }) else { throw HostSessionError.unavailable }
+                members.append(LobbyMember(id: UUID(), name: "Robot \(members.filter { $0.isBot }.count + 1)", color: color, ready: true, partner: nil, isBot: true))
+            }
+        }
+        guard members.count == capacity else { throw HostSessionError.notReady }
         var order: [UUID] = []
         if individual { order = members.map { $0.id } }
         else {
@@ -163,6 +184,26 @@ public struct HostSession: Sendable {
         guard let seat, let game else { return PrivateSession(seat: nil, hand: [], legalPlays: []) }
         return PrivateSession(seat: seat, hand: game.hand(for: seat),
                               legalPlays: game.activeSeat == seat && !presentingMove ? game.legalPlays() : [])
+    }
+
+    public var botTurn: Bool {
+        guard !presentingMove, let game, game.winner == nil, seats.indices.contains(game.activeSeat) else { return false }
+        return members.contains { $0.id == seats[game.activeSeat] && $0.isBot }
+    }
+
+    public mutating func playBot() throws {
+        guard botTurn, let game else { throw HostSessionError.unauthorized }
+        func score(_ move: GamePlay) -> Int {
+            move.steps.reduce(0) { total, step in
+                switch step.destination {
+                case .home: return total + 100
+                case .track: return total + (game.marbles[step.marble].position == .start ? 30 : 10)
+                case .start: return total
+                }
+            }
+        }
+        guard let move = game.legalPlays().max(by: { score($0) < score($1) }) else { throw HostSessionError.unavailable }
+        try play(id: seats[game.activeSeat], expectedRevision: revision, move: move)
     }
 
     public mutating func finishPresentation() {
