@@ -29,7 +29,7 @@ struct ModularBoardView: View {
         GeometryReader { geo in
         ZStack {
         if ApprovedMeshBoard.available {
-            ApprovedMeshBoard(playerCount: playerCount, seatColors: seatColors ?? Array(0..<playerCount))
+            ApprovedMeshBoard(playerCount: playerCount, seatColors: seatColors ?? Array(0..<playerCount), marbles: meshMarbles(size: geo.size))
         }
         Canvas { context, size in
             guard (3...6).contains(playerCount) else { return }
@@ -111,7 +111,7 @@ struct ModularBoardView: View {
                             guard mapped.seat % playerCount == seat else { continue }
                             point = mapped.point
                         }
-                        Self.drawMarble(point, color: color(for: marble.seat), context: ctx)
+                        if !ApprovedMeshBoard.available { Self.drawMarble(point, color: color(for: marble.seat), context: ctx) }
                     }
                 } else {
                     for point in Array(Self.start.prefix(3)) + [Self.track[5], Self.home[0]] {
@@ -149,7 +149,7 @@ struct ModularBoardView: View {
                     let radius = min(size.width, size.height) * 0.009
                     context.stroke(Path(ellipseIn: CGRect(x: origin.x-radius, y: origin.y-radius, width: radius*2, height: radius*2)), with: .color(color), lineWidth: 2)
                     context.stroke(Path(ellipseIn: CGRect(x: end.x-radius, y: end.y-radius, width: radius*2, height: radius*2)), with: .color(.yellow), lineWidth: 2)
-                    if progress < 1 {
+                    if progress < 1 && !ApprovedMeshBoard.available {
                         let sphere = Path(ellipseIn: CGRect(x: point.x-radius, y: point.y-radius, width: radius*2, height: radius*2))
                         context.fill(sphere, with: .radialGradient(Gradient(colors: [.white, color, .black]), center: CGPoint(x: point.x-radius/3, y: point.y-radius/3), startRadius: 0, endRadius: radius*1.6))
                     }
@@ -194,6 +194,33 @@ struct ModularBoardView: View {
                 guard !Task.isCancelled else { return }
             }
         }
+        }
+    }
+
+    private func meshMarbles(size: CGSize) -> [MeshMarble] {
+        guard let gameMarbles else { return [] }
+        return gameMarbles.enumerated().compactMap { index, marble in
+            guard var point = screenPoint(marble, size: size) else { return nil }
+            if progress < 1, let move = lastMove,
+               let stepIndex = move.steps.firstIndex(where: { $0.marble == index }),
+               move.before.indices.contains(index),
+               let origin = screenPoint(move.before[index], size: size) {
+                let route = move.routes.indices.contains(stepIndex) ? move.routes[stepIndex] : []
+                let points = route.compactMap { destinationPoint(move.before[index], destination: $0, size: size) }
+                let path = points.count >= 2 ? points : [origin, point]
+                let lengths = move.routes.map { max(1, $0.count - 1) }
+                let total = max(1, lengths.reduce(0, +))
+                let prior = lengths.prefix(stepIndex).reduce(0, +)
+                let length = lengths.indices.contains(stepIndex) ? lengths[stepIndex] : 1
+                let local = min(1, max(0, (progress * CGFloat(total) - CGFloat(prior)) / CGFloat(length)))
+                let distance = local * CGFloat(path.count - 1)
+                let segment = min(path.count - 2, Int(distance))
+                let fraction = distance - CGFloat(segment)
+                let a = path[segment], b = path[segment + 1]
+                point = CGPoint(x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction)
+            }
+            let colorIndex = seatColors.flatMap { $0.indices.contains(marble.seat) ? $0[marble.seat] : nil } ?? marble.seat
+            return MeshMarble(point: point, color: colorIndex)
         }
     }
 
