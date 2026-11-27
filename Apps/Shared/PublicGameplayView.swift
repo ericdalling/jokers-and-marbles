@@ -61,7 +61,7 @@ struct PublicGameplayView: View {
                     ForEach(0..<state.capacity, id: \.self) { seat in
                         if let player = member(seat) {
                             HStack {
-                                Image(systemName: "person.crop.circle.fill")
+                                Image(systemName: player.isBot ? "cpu" : "person.crop.circle.fill")
                                 VStack(alignment: .leading) {
                                     Text(player.name).font(.headline)
                                     if let partner = state.members.first(where: { $0.id == player.partner }) { Text("With " + partner.name).font(.caption) }
