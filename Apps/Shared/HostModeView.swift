@@ -48,7 +48,7 @@ struct HostModeView: View {
                                 VStack {
                                     Circle().fill(colors[member.color]).frame(width: 32, height: 32)
                                     Text(member.name).font(.headline)
-                                    Text(member.ready ? "Ready" : "Not ready")
+                                    Text(!host.connectedPlayers.contains(member.id) ? "Disconnected" : member.ready ? "Ready" : "Not ready")
                                     if let partner = state.members.first(where: { $0.id == member.partner }) {
                                         Text("With " + partner.name).font(.caption)
                                     }
@@ -59,7 +59,7 @@ struct HostModeView: View {
                             }
                         }
                         Button("Start game") { host.start() }
-                            .disabled(state.members.count != state.capacity || !state.members.allSatisfy { $0.ready })
+                            .disabled(state.members.count != state.capacity || !state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) })
                     }
                     Button("Close room") { confirmClose = true }
                 } else {
