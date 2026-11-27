@@ -18,6 +18,7 @@ targets:
           python3 "$SRCROOT/scripts/prepare-approved-assets.py"
           mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           cp "$SRCROOT/Assets/Approved/Materials/"*.jpg "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
+          cp "$SRCROOT/Assets/Approved/Models/master-piece.glb" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
         basedOnDependencyAnalysis: false
     dependencies:
       - package: GameCore
@@ -54,6 +55,7 @@ targets:
           python3 "$SRCROOT/scripts/prepare-approved-assets.py"
           mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           cp "$SRCROOT/Assets/Approved/Materials/"*.jpg "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
+          cp "$SRCROOT/Assets/Approved/Models/master-piece.glb" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
         basedOnDependencyAnalysis: false
     dependencies:
       - package: GameCore
