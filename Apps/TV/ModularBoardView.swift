@@ -6,6 +6,11 @@ struct ModularBoardView: View {
     let playerCount: Int
     var activePlayer: Int = 0
     var gameMarbles: [GameMarble]? = nil
+    var seatColors: [Int]? = nil
+    private func color(for seat: Int) -> Color {
+        let index = seatColors.flatMap { $0.indices.contains(seat) ? $0[seat] : nil } ?? seat
+        return colors[colors.indices.contains(index) ? index : 0]
+    }
     private let colors: [Color] = [Color(red: 0.83, green: 0.035, blue: 0.06), Color(red: 0.025, green: 0.32, blue: 0.95), Color(red: 0.025, green: 0.67, blue: 0.20), Color(red: 0.98, green: 0.76, blue: 0.015), Color(red: 0.58, green: 0.08, blue: 0.85), Color(red: 1, green: 0.36, blue: 0.025)]
 
     var body: some View {
@@ -31,7 +36,7 @@ struct ModularBoardView: View {
                     ctx.stroke(Self.hole(point), with: .color(.white.opacity(0.35)), lineWidth: 2)
                 }
                 for point in Self.home + Self.start {
-                    ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [colors[seat].opacity(0.85), .black.opacity(0.85)]), center: CGPoint(x: point.x, y: point.y + 5), startRadius: 0, endRadius: 22))
+                    ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [color(for: seat).opacity(0.85), .black.opacity(0.85)]), center: CGPoint(x: point.x, y: point.y + 5), startRadius: 0, endRadius: 22))
                     ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
                 }
                 if let gameMarbles {
@@ -48,11 +53,11 @@ struct ModularBoardView: View {
                             guard index >= 0, index / Self.track.count == seat else { continue }
                             point = Self.track[index % Self.track.count]
                         }
-                        Self.drawMarble(point, color: colors[marble.seat], context: ctx)
+                        Self.drawMarble(point, color: color(for: marble.seat), context: ctx)
                     }
                 } else {
                     for point in Array(Self.start.prefix(3)) + [Self.track[5], Self.home[0]] {
-                        Self.drawMarble(point, color: colors[seat], context: ctx)
+                        Self.drawMarble(point, color: color(for: seat), context: ctx)
                     }
                 }
             }
