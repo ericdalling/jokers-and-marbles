@@ -42,22 +42,18 @@ struct PublicGameplayView: View {
                             Text(member((active + offset) % state.capacity)?.name ?? "")
                         }
                     }
-                }.padding(14).frame(width: 210, alignment: .leading).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
+                }.padding(14).frame(width: 210, alignment: .leading).background(Color(red: 0.08, green: 0.065, blue: 0.05), in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(red: 0.55, green: 0.39, blue: 0.23), lineWidth: 1))
                 ZStack {
                     ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
                                      seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove)
                     VStack(spacing: 5) {
                         
                         HStack {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.05, green: 0.18, blue: 0.42))
-                                RoundedRectangle(cornerRadius: 4).strokeBorder(.white.opacity(0.8), lineWidth: 2).padding(4)
-                                Image(systemName: "diamond.fill").foregroundStyle(.white.opacity(0.8))
-                            }.frame(width: 44, height: 62)
+                            PremiumCardBack().frame(width: 44, height: 62)
                                 .overlay {
                                     if drawing {
-                                        RoundedRectangle(cornerRadius: 6).fill(.blue)
-                                            .overlay(Image(systemName: "diamond.fill").foregroundStyle(.white))
+                                        PremiumCardBack()
                                             .offset(x: 30, y: -35).rotationEffect(.degrees(12))
                                     }
                                 }
@@ -71,13 +67,14 @@ struct PublicGameplayView: View {
                         if let player = member(seat) {
                             HStack {
                                 Image(systemName: player.isBot ? "cpu" : "person.crop.circle.fill")
+                                    .font(.title2).foregroundStyle(colors[player.color])
                                 VStack(alignment: .leading) {
-                                    Text(player.name).font(.headline)
+                                    Text(player.name).font(.system(.headline, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
                                     if let partner = state.members.first(where: { $0.id == player.partner }) { Text("With " + partner.name).font(.caption) }
                                     if !connected.contains(player.id) { Text("Disconnected").font(.caption) }
                                 }
                             }.padding(8).frame(maxWidth: .infinity, alignment: .leading)
-                                .background(colors[player.color].opacity(seat == active ? 0.6 : 0.15), in: RoundedRectangle(cornerRadius: 10))
+                                .background(Color(red: 0.075, green: 0.06, blue: 0.05), in: RoundedRectangle(cornerRadius: 10))
                                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(colors[player.color], lineWidth: seat == active ? 3 : 1))
                                 .shadow(color: colors[player.color].opacity(seat == active ? 0.7 : 0), radius: 10)
                         }

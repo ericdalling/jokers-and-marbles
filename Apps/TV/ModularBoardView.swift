@@ -53,7 +53,21 @@ struct ModularBoardView: View {
                 edge.translateBy(x: 0, y: 12)
                 edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
                 ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.99, green: 0.87, blue: 0.66), Color(red: 0.91, green: 0.73, blue: 0.48), Color(red: 0.97, green: 0.82, blue: 0.59)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
+                var grain = ctx
+                grain.clip(to: outline)
+                for i in 0..<100 {
+                    let y = CGFloat(i) * 2.5 + 60
+                    var line = Path()
+                    line.move(to: CGPoint(x: 160, y: y))
+                    for j in 1...24 {
+                        let x = CGFloat(j) * 44 + 160
+                        let wave = CGFloat(sin(Double(j) * 0.29 + Double(i) * 0.17)) * 2
+                        line.addLine(to: CGPoint(x: x, y: y + wave))
+                    }
+                    grain.stroke(line, with: .color(Color(red: 0.47, green: 0.29, blue: 0.13).opacity(Double(i % 5 + 1) * 0.012)), lineWidth: 1)
+                }
                 ctx.stroke(outline, with: .color(Color(red: 0.65, green: 0.42, blue: 0.22)), lineWidth: 2)
+                ctx.stroke(outline, with: .color(.white.opacity(0.22)), lineWidth: 0.7)
                 continue
                 }
                 for point in Self.track {
@@ -202,7 +216,7 @@ struct ModularBoardView: View {
             .init(color: color, location: 0.24),
             .init(color: color, location: 0.57),
             .init(color: .black, location: 1)
-        ]), center: center, startRadius: 0, endRadius: 30))
+        ]), center: center, startRadius: 0, endRadius: 28))
         let reflection = Path(ellipseIn: CGRect(x: point.x - 11, y: point.y - 12, width: 10, height: 6))
         context.fill(reflection, with: .color(.white.opacity(0.9)))
         let rim = Path(ellipseIn: CGRect(x: point.x + 4, y: point.y + 8, width: 8, height: 4))
