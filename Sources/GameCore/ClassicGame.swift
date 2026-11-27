@@ -58,7 +58,6 @@ public struct ClassicGame: Sendable {
         for seat in 0..<rules.seats {
             for _ in 0..<rules.handSize { hands[seat].append(deck.removeLast()) }
         }
-        draw()
     }
     public var drawCount: Int { deck.count }
     public var topDiscard: PlayingCard? { discard.last }
@@ -67,7 +66,10 @@ public struct ClassicGame: Sendable {
         hands.indices.contains(seat) ? hands[seat] : []
     }
     private mutating func draw() {
-        if deck.isEmpty { deck = discard; discard = []; deck.shuffle(using: &random) }
+        if deck.isEmpty, discard.count > 1 {
+            let top = discard.removeLast()
+            deck = discard; discard = [top]; deck.shuffle(using: &random)
+        }
         if let card = deck.popLast() { hands[activeSeat].append(card) }
     }
     private func complete(_ seat: Int) -> Bool {
@@ -190,7 +192,7 @@ public struct ClassicGame: Sendable {
         if (0..<rules.seats).filter({ rules.team(of: $0) == team }).allSatisfy({ complete($0) }) {
             winner = team; return
         }
-        activeSeat = (activeSeat + 1) % rules.seats
         draw()
+        activeSeat = (activeSeat + 1) % rules.seats
     }
 }
