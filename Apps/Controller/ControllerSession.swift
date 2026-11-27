@@ -70,7 +70,7 @@ final class ControllerSession: ObservableObject {
     }
     func connect(_ peer: MCPeerID) {
         guard token == nil || lastHost == peer else { status = "Original host required to reconnect"; return }
-        target = peer; lastHost = peer; transport.connect(peer)
+        target = peer; lastHost = peer; transport.connect(peer, secret: secret, token: token)
     }
     func send(_ command: SessionCommand) {
         guard verified, let target, transport.connected.contains(target) else { status = "Not connected"; return }

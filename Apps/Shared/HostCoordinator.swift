@@ -11,6 +11,7 @@ final class HostCoordinator: ObservableObject {
     @Published private(set) var error = ""
     @Published private(set) var connectedPlayers: Set<UUID> = []
     @Published private(set) var pendingConnection = false
+    private var usedNonces: Set<UUID> = []
     private var approval: ((Bool) -> Void)?
     func approveConnection(_ allow: Bool) {
         let callback = approval; approval = nil; pendingConnection = false; callback?(allow)
@@ -21,8 +22,18 @@ final class HostCoordinator: ObservableObject {
     private var tokens: [UUID: UUID] = [:]
 
     init() {
-        transport.onInvitation = { [weak self] _, reply in
-            guard let self, self.approval == nil else { reply(false); return }
+        transport.onInvitation = { [weak self] _, admission, reply in
+            guard let self, let state = self.state else { reply(false); return }
+            if let token = admission.resumeToken, let id = self.tokens[token], !self.identities.values.contains(id) {
+                reply(true); return
+            }
+            guard state.activeSeat == nil, state.members.count < 6 else { reply(false); return }
+            if let proof = admission.proof {
+                guard proof == RoomProof.make(secret: self.roomSecret, nonce: admission.nonce),
+                      self.usedNonces.insert(admission.nonce).inserted else { reply(false); return }
+                reply(true); return
+            }
+            guard self.approval == nil else { reply(false); return }
             self.approval = reply; self.pendingConnection = true
         }
         transport.onData = { [weak self] data, peer in self?.receive(data, from: peer) }
@@ -36,7 +47,7 @@ final class HostCoordinator: ObservableObject {
         do {
             transport.stop()
             host = HostSession()
-            identities = [:]; tokens = [:]
+            identities = [:]; tokens = [:]; usedNonces = []
             roomCode = String(format: "%06d", Int.random(in: 0...999999))
             roomSecret = UUID().uuidString + UUID().uuidString
             transport.host(code: roomCode)
