@@ -3,12 +3,15 @@ import GameCore
 
 @Test func classicConfiguration() throws {
     let rules = GameRules.classic
-    #expect(rules.trackLength == 108)
+    #expect(rules.trackLength == 102)
     #expect(rules.teamCount == 3)
     #expect(rules.team(of: 0) == rules.team(of: 3))
     #expect(rules.team(of: 1) != rules.team(of: 0))
     let game = try ClassicGame(seed: 42)
     #expect(game.marbles.count == 30)
+    #expect(game.drawCount == 77)
+    #expect(game.topDiscard == nil)
+    #expect(game.handCount(for: 0) == 6)
     #expect(game.hand(for: 0).count == 6)
     #expect(game.hand(for: 1).count == 5)
 }
