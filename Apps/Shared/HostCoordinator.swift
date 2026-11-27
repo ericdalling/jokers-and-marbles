@@ -8,6 +8,7 @@ final class HostCoordinator: ObservableObject {
     @Published private(set) var state: PublicSession?
     @Published private(set) var roomCode = ""
     @Published private(set) var error = ""
+    @Published private(set) var connectedPlayers: Set<UUID> = []
     private var host: HostSession?
     private var identities: [MCPeerID: UUID] = [:]
     private var tokens: [UUID: UUID] = [:]
@@ -41,7 +42,7 @@ final class HostCoordinator: ObservableObject {
 
     func close() {
         transport.stop()
-        host = nil; state = nil; identities = [:]; tokens = [:]; roomCode = ""
+        host = nil; state = nil; connectedPlayers = []; identities = [:]; tokens = [:]; roomCode = ""
     }
 
     private func receive(_ data: Data, from peer: MCPeerID) {
@@ -80,6 +81,7 @@ final class HostCoordinator: ObservableObject {
 
     private func publish() {
         guard let host else { return }
+        connectedPlayers = Set(identities.values)
         let snapshot = host.publicState()
         state = snapshot
         for peer in transport.connected {
