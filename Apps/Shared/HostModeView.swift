@@ -57,16 +57,24 @@ struct HostModeView: View {
                         .buttonStyle(.bordered).tint(.white)
                 } else {
                     Button("Open new room") { host.open() }
+                    #if !os(tvOS)
                     Button("Back", action: close)
+                    #endif
                 }
                 if !host.error.isEmpty { Text(host.error).foregroundStyle(.red) }
-            }.padding(20)
+            }.padding(20).frame(maxWidth: .infinity)
         }.defaultScrollAnchor(.top)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
         .background(GameBackdrop().ignoresSafeArea())
         .confirmationDialog("End this room for everyone?", isPresented: $confirmClose) {
-            Button("End room", role: .destructive) { host.close() }
+            Button("End room", role: .destructive) {
+                host.close()
+                #if os(tvOS)
+                host.open()
+                #endif
+            }
             Button("Cancel", role: .cancel) {}
         }
         .alert("Allow nearby controller to connect?", isPresented: Binding(get: { host.pendingConnection }, set: { if !$0 && host.pendingConnection { host.approveConnection(false) } })) {
