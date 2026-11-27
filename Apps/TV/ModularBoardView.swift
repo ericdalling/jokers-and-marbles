@@ -13,6 +13,9 @@ struct ModularBoardView: View {
     var destinations: [MarbleStep] = []
     var onDestination: ((MarbleStep) -> Void)? = nil
     var lastMove: PublicMove? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: CGFloat = 1
+    @State private var animatedRevision: Int?
     private func color(for seat: Int) -> Color {
         let index = seatColors.flatMap { $0.indices.contains(seat) ? $0[seat] : nil } ?? seat
         return colors[colors.indices.contains(index) ? index : 0]
@@ -47,7 +50,8 @@ struct ModularBoardView: View {
                     ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
                 }
                 if let gameMarbles {
-                    for marble in gameMarbles {
+                    for (index, marble) in gameMarbles.enumerated() {
+                        if progress < 1, lastMove?.steps.contains(where: { $0.marble == index }) == true { continue }
                         let point: CGPoint
                         switch marble.position {
                         case .start:
@@ -70,6 +74,27 @@ struct ModularBoardView: View {
             }
         }
         .overlay {
+            Canvas { context, size in
+                guard let move = lastMove, let gameMarbles else { return }
+                for step in move.steps {
+                    guard move.before.indices.contains(step.marble), gameMarbles.indices.contains(step.marble),
+                          let origin = screenPoint(move.before[step.marble], size: size),
+                          let end = screenPoint(gameMarbles[step.marble], size: size) else { continue }
+                    let color = color(for: gameMarbles[step.marble].seat)
+                    let point = CGPoint(x: origin.x + (end.x - origin.x) * progress, y: origin.y + (end.y - origin.y) * progress)
+                    var trail = Path(); trail.move(to: origin); trail.addLine(to: point)
+                    context.stroke(trail, with: .color(color.opacity(0.55)), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    let radius = min(size.width, size.height) * 0.009
+                    context.stroke(Path(ellipseIn: CGRect(x: origin.x-radius, y: origin.y-radius, width: radius*2, height: radius*2)), with: .color(color), lineWidth: 2)
+                    context.stroke(Path(ellipseIn: CGRect(x: end.x-radius, y: end.y-radius, width: radius*2, height: radius*2)), with: .color(.yellow), lineWidth: 2)
+                    if progress < 1 {
+                        let sphere = Path(ellipseIn: CGRect(x: point.x-radius, y: point.y-radius, width: radius*2, height: radius*2))
+                        context.fill(sphere, with: .radialGradient(Gradient(colors: [.white, color, .black]), center: CGPoint(x: point.x-radius/3, y: point.y-radius/3), startRadius: 0, endRadius: radius*1.6))
+                    }
+                }
+            }.allowsHitTesting(false)
+        }
+        .overlay {
             if let gameMarbles {
                 ForEach(selectableMarbles, id: \.self) { index in
                     if gameMarbles.indices.contains(index), let point = screenPoint(gameMarbles[index], size: geo.size) {
@@ -80,7 +105,7 @@ struct ModularBoardView: View {
                 }
                 ForEach(destinations, id: \.self) { step in
                     if gameMarbles.indices.contains(step.marble) {
-                        var marble = gameMarbles[step.marble]
+                        let marble = gameMarbles[step.marble]
                         let point = destinationPoint(marble, destination: step.destination, size: geo.size)
                         if let point {
                             Circle().fill(.yellow.opacity(0.35)).overlay(Circle().stroke(.yellow, lineWidth: 2))
@@ -92,6 +117,19 @@ struct ModularBoardView: View {
             }
         }
         .accessibilityLabel("\(playerCount)-player modular board")
+        .task(id: lastMove?.revision) {
+            guard let revision = lastMove?.revision, animatedRevision != revision else { return }
+            animatedRevision = revision
+            guard !reduceMotion else { progress = 1; return }
+            progress = 0
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled else { return }
+            for frame in 1...60 {
+                progress = CGFloat(frame) / 60
+                try? await Task.sleep(for: .milliseconds(30))
+                guard !Task.isCancelled else { return }
+            }
+        }
         }
     }
 
