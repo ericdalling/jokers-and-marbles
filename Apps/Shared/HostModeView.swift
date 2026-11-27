@@ -52,7 +52,9 @@ struct HostModeView: View {
                                     if let partner = state.members.first(where: { $0.id == member.partner }) {
                                         Text("With " + partner.name).font(.caption)
                                     }
-                                }.padding()
+                                }.padding().frame(maxWidth: .infinity)
+                                    .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 16))
+                                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(colors[member.color].opacity(0.7), lineWidth: 2))
                             }
                             ForEach(0..<max(0, state.capacity - state.members.count), id: \.self) { _ in
                                 Text("Open seat").padding()
@@ -77,7 +79,7 @@ struct HostModeView: View {
             }.padding(30)
         }
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
-        .background(Color(red: 0.16, green: 0.08, blue: 0.04).ignoresSafeArea())
+        .background(LinearGradient(colors: [Color(red: 0.27, green: 0.14, blue: 0.07), Color(red: 0.09, green: 0.04, blue: 0.02)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
         .confirmationDialog("End this room for everyone?", isPresented: $confirmClose) {
             Button("End room", role: .destructive) { host.close() }
             Button("Cancel", role: .cancel) {}
@@ -91,7 +93,7 @@ struct HostModeView: View {
 
     private func qr(_ code: String) -> CGImage? {
         let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data("jokersmarbles://join?code=\(code)".utf8)
+        filter.message = Data("jokersmarbles://join?code=\(code)&secret=\(host.roomSecret)".utf8)
         guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return nil }
         return CIContext().createCGImage(output, from: output.extent)
     }
