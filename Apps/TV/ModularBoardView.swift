@@ -27,6 +27,10 @@ struct ModularBoardView: View {
 
     var body: some View {
         GeometryReader { geo in
+        ZStack {
+        if ApprovedMeshBoard.available {
+            ApprovedMeshBoard(playerCount: playerCount, seatColors: seatColors ?? Array(0..<playerCount))
+        }
         Canvas { context, size in
             guard (3...6).contains(playerCount) else { return }
             let n = Double(playerCount)
@@ -41,6 +45,7 @@ struct ModularBoardView: View {
                 ctx.translateBy(x: -634, y: CGFloat(-485 / tan(.pi / n) - 128))
                 let outline = Self.outline
                 if layer == 0 {
+                if ApprovedMeshBoard.available { continue }
                 if playerCount < 6 {
                     // Keep each piece inside its own angular sector; no adjacent piece can cover its holes.
                     let centerY = CGFloat(485 / tan(.pi / n) + 128)
@@ -79,6 +84,7 @@ struct ModularBoardView: View {
                 ctx.stroke(outline, with: .color(.white.opacity(0.22)), lineWidth: 0.7)
                 continue
                 }
+                if !ApprovedMeshBoard.available {
                 for point in Self.track {
                     ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.brown, .black.opacity(0.8)]), center: point, startRadius: 0, endRadius: 18))
                     ctx.stroke(Self.hole(point), with: .color(.white.opacity(0.35)), lineWidth: 2)
@@ -86,6 +92,7 @@ struct ModularBoardView: View {
                 for point in Self.home + Self.start {
                     ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [color(for: seat).opacity(0.85), .black.opacity(0.85)]), center: CGPoint(x: point.x, y: point.y + 5), startRadius: 0, endRadius: 22))
                     ctx.stroke(Self.hole(point), with: .color(.black.opacity(0.45)), lineWidth: 2)
+                }
                 }
                 if let gameMarbles {
                     for (index, marble) in gameMarbles.enumerated() {
@@ -170,6 +177,7 @@ struct ModularBoardView: View {
                     }
                 }
             }
+        }
         }
         .accessibilityLabel("\(playerCount)-player modular board")
         .task(id: lastMove?.revision) {
