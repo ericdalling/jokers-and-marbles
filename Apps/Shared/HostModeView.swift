@@ -9,13 +9,15 @@ struct HostModeView: View {
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
 
     var body: some View {
+        GeometryReader { geometry in
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 14) {
                 Text("Jokers & Marbles").font(.system(.largeTitle, design: .serif).italic())
-                Text("Host Mode").font(.headline)
+                if host.state?.activeSeat == nil { Text("Host Mode").font(.headline) }
                 if let state = host.state {
                     if state.activeSeat != nil {
                         PublicGameplayView(state: state, connected: host.connectedPlayers)
+                            .frame(height: max(220, geometry.size.height - 180))
 
                     } else {
                         HStack(spacing: 30) {
@@ -29,7 +31,7 @@ struct HostModeView: View {
                                 Text("Or enter the room code")
                             }
                         }
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))]) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 210))]) {
                             ForEach(state.members) { member in
                                 VStack {
                                     Circle().fill(colors[member.color]).frame(width: 32, height: 32)
@@ -52,17 +54,27 @@ struct HostModeView: View {
                             .disabled(state.members.isEmpty || !state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) })
                     }
                     Button("Close room") { confirmClose = true }
+                        .buttonStyle(.bordered).tint(.white)
                 } else {
                     Button("Open new room") { host.open() }
+                    #if !os(tvOS)
                     Button("Back", action: close)
+                    #endif
                 }
                 if !host.error.isEmpty { Text(host.error).foregroundStyle(.red) }
-            }.padding(30)
+            }.padding(20).frame(maxWidth: .infinity)
+        }.defaultScrollAnchor(.top)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
-        .background(LinearGradient(colors: [Color(red: 0.27, green: 0.14, blue: 0.07), Color(red: 0.09, green: 0.04, blue: 0.02)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+        .background(GameBackdrop().ignoresSafeArea())
         .confirmationDialog("End this room for everyone?", isPresented: $confirmClose) {
-            Button("End room", role: .destructive) { host.close() }
+            Button("End room", role: .destructive) {
+                host.close()
+                #if os(tvOS)
+                host.open()
+                #endif
+            }
             Button("Cancel", role: .cancel) {}
         }
         .alert("Allow nearby controller to connect?", isPresented: Binding(get: { host.pendingConnection }, set: { if !$0 && host.pendingConnection { host.approveConnection(false) } })) {
