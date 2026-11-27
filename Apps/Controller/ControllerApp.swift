@@ -2,8 +2,14 @@ import SwiftUI
 
 @main
 struct ControllerApp: App {
+    @State private var showLobby = false
     var body: some Scene {
         WindowGroup {
+            if showLobby {
+                JoinLobbyView { showLobby = false }
+            } else {
+            VStack {
+            Button("Join game") { showLobby = true }.buttonStyle(.borderedProminent)
             GeometryReader { geometry in
                 ScrollView([.vertical, .horizontal]) {
                     Image("EmmaInGamePreview")
@@ -16,7 +22,8 @@ struct ControllerApp: App {
                 .scrollIndicators(.hidden)
                 .accessibilityLabel("Jokers and Marbles in-game controller concept featuring Emma. Interactive gameplay coming soon.")
             }
-            .ignoresSafeArea()
+            }
+            }
         }
     }
 }
