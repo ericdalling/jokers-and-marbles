@@ -89,9 +89,7 @@ struct GameplayControllerView: View {
                     Button {
                         selectedCard = index; selectedMarble = nil; selectedMove = nil
                     } label: {
-                        Text(String(describing: card)).font(.system(.caption, design: .serif).bold())
-                            .minimumScaleFactor(0.5).lineLimit(2).frame(maxWidth: .infinity).frame(height: 82)
-                            .foregroundStyle(.black).background(Color(red: 0.98, green: 0.94, blue: 0.82), in: RoundedRectangle(cornerRadius: 8))
+                        PremiumCardView(card: card).frame(maxWidth: .infinity).frame(height: 82)
                             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? .orange : .brown, lineWidth: selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? 4 : 1))
                     }.buttonStyle(.plain).disabled(!active || submitted || !personal.legalPlays.contains { $0.cardIndex == index })
                 }
