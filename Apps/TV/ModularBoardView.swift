@@ -29,6 +29,7 @@ struct ModularBoardView: View {
             let n = Double(playerCount)
             let extent = 970 / (2 * sin(.pi / n)) + 160
             let scale = min(size.width, size.height) / CGFloat(2 * extent)
+            for layer in 0..<2 {
             for seat in 0..<playerCount {
                 var ctx = context
                 ctx.translateBy(x: size.width / 2, y: size.height / 2)
@@ -36,11 +37,25 @@ struct ModularBoardView: View {
                 ctx.rotate(by: .degrees(180 + Double(seat) * 360 / n))
                 ctx.translateBy(x: -634, y: CGFloat(-485 / tan(.pi / n) - 128))
                 let outline = Self.outline
+                if layer == 0 {
+                if playerCount < 6 {
+                    // Keep each piece inside its own angular sector; no adjacent piece can cover its holes.
+                    let centerY = CGFloat(485 / tan(.pi / n) + 128)
+                    let slope = CGFloat(tan(.pi / n))
+                    var sector = Path()
+                    sector.move(to: CGPoint(x: 634, y: centerY))
+                    sector.addLine(to: CGPoint(x: 634 - (centerY + 1000) * slope, y: -1000))
+                    sector.addLine(to: CGPoint(x: 634 + (centerY + 1000) * slope, y: -1000))
+                    sector.closeSubpath()
+                    ctx.clip(to: sector)
+                }
                 var edge = ctx
                 edge.translateBy(x: 0, y: 12)
                 edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
                 ctx.fill(outline, with: .linearGradient(Gradient(colors: [Color(red: 0.99, green: 0.87, blue: 0.66), Color(red: 0.91, green: 0.73, blue: 0.48), Color(red: 0.97, green: 0.82, blue: 0.59)]), startPoint: CGPoint(x: 0, y: 60), endPoint: CGPoint(x: 0, y: 292)))
                 ctx.stroke(outline, with: .color(Color(red: 0.65, green: 0.42, blue: 0.22)), lineWidth: 2)
+                continue
+                }
                 for point in Self.track {
                     ctx.fill(Self.hole(point), with: .radialGradient(Gradient(colors: [.brown, .black.opacity(0.8)]), center: point, startRadius: 0, endRadius: 18))
                     ctx.stroke(Self.hole(point), with: .color(.white.opacity(0.35)), lineWidth: 2)
@@ -61,8 +76,10 @@ struct ModularBoardView: View {
                             guard marble.seat == seat, Self.home.indices.contains(index) else { continue }
                             point = Self.home[index]
                         case .track(let index):
-                            guard index >= 0, index / Self.track.count == seat else { continue }
-                            point = Self.track[index % Self.track.count]
+                            guard index >= 0 else { continue }
+                            let mapped = Self.trackPoint(index)
+                            guard mapped.seat % playerCount == seat else { continue }
+                            point = mapped.point
                         }
                         Self.drawMarble(point, color: color(for: marble.seat), context: ctx)
                     }
@@ -71,6 +88,7 @@ struct ModularBoardView: View {
                         Self.drawMarble(point, color: color(for: seat), context: ctx)
                     }
                 }
+            }
             }
         }
         .overlay {
@@ -159,7 +177,7 @@ struct ModularBoardView: View {
         switch marble.position {
         case .start: seat = marble.seat; guard Self.start.indices.contains(marble.number) else { return nil }; point = Self.start[marble.number]
         case .home(let i): seat = marble.seat; guard Self.home.indices.contains(i) else { return nil }; point = Self.home[i]
-        case .track(let i): guard i >= 0 else { return nil }; seat = i / Self.track.count; point = Self.track[i % Self.track.count]
+        case .track(let i): guard i >= 0 else { return nil }; let mapped = Self.trackPoint(i); seat = mapped.seat % playerCount; point = mapped.point
         }
         let n = Double(playerCount)
         let extent = 970 / (2 * sin(.pi / n)) + 160
@@ -192,6 +210,11 @@ struct ModularBoardView: View {
     }
 
     static let track = (0..<16).map { CGPoint(x: 237 + Double($0) * 55.2, y: 95) } + [CGPoint(x: 1119, y: 128)]
+    // Logical index zero is the track hole directly below the starting cross.
+    private static func trackPoint(_ index: Int) -> (seat: Int, point: CGPoint) {
+        let shifted = index + 7
+        return (shifted / 17, track[shifted % 17])
+    }
     static let home = [CGPoint(x: 345,y: 146), CGPoint(x: 345,y: 201), CGPoint(x: 345,y: 256), CGPoint(x: 400,y: 256), CGPoint(x: 453,y: 256)]
     static let start = [CGPoint(x: 613,y: 146), CGPoint(x: 562,y: 201), CGPoint(x: 613,y: 201), CGPoint(x: 665,y: 201), CGPoint(x: 613,y: 256)]
     static func hole(_ p: CGPoint) -> Path {
