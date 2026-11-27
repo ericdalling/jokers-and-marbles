@@ -33,6 +33,7 @@ final class SessionTransport: NSObject, ObservableObject {
     private func roomTag(_ code: String) -> String {
         SHA256.hash(data: Data(("jokers-room-v1:" + code).utf8)).map { String(format: "%02x", $0) }.joined()
     }
+    var onInvitation: ((MCPeerID, @escaping (Bool) -> Void) -> Void)?
     var onData: ((Data, MCPeerID) -> Void)?
     var onConnection: ((MCPeerID, Bool) -> Void)?
 
@@ -81,7 +82,8 @@ extension SessionTransport: MCNearbyServiceAdvertiserDelegate, MCNearbyServiceBr
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         DispatchQueue.main.async {
             let accepted = context == Data(self.roomCode.utf8) && self.session.connectedPeers.count < 6
-            invitationHandler(accepted, accepted ? self.session : nil)
+            guard accepted, let approve = self.onInvitation else { invitationHandler(false, nil); return }
+            approve(peerID) { allowed in invitationHandler(allowed, allowed ? self.session : nil) }
         }
     }
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
