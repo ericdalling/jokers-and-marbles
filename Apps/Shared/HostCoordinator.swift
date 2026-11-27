@@ -64,6 +64,7 @@ final class HostCoordinator: ObservableObject {
             switch command {
             case let .challenge(nonce):
                 transport.send(SessionReply.proof(RoomProof.make(secret: roomSecret, nonce: nonce)), to: peer)
+                transport.send(SessionReply.state(current.publicState(), nil), to: peer)
                 return
             case let .join(name, color):
                 guard identities[peer] == nil else { throw HostSessionError.unauthorized }
