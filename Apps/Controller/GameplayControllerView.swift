@@ -49,7 +49,7 @@ struct GameplayControllerView: View {
                          onDestination: { step in
                              let matches = filtered.filter { $0.steps.first == step }
                              if matches.count == 1 { selectedMove = matches.first }
-                         })
+                         }, lastMove: state.lastMove)
             .aspectRatio(1, contentMode: .fit)
             .scaleEffect(zoom).clipped()
             .gesture(MagnifyGesture().onChanged { zoom = min(2.5, max(1, $0.magnification)) })
