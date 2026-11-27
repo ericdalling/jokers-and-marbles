@@ -93,6 +93,12 @@ struct ControllerLobbyView: View {
 
     var body: some View {
         NavigationStack {
+            Group {
+            if let state = client.state, state.activeSeat != nil, let personal = client.personal, let player = client.player {
+                GameplayControllerView(state: state, personal: personal, player: player) { move in
+                    client.send(.play(revision: state.revision, move: move))
+                }
+            } else {
             Form {
                 if let state = client.state, let player = client.player,
                    let member = state.members.first(where: { $0.id == player }) {
@@ -151,6 +157,8 @@ struct ControllerLobbyView: View {
             }.scrollContentBackground(.hidden)
             .background(LinearGradient(colors: [Color(red: 0.27, green: 0.14, blue: 0.07), Color(red: 0.09, green: 0.04, blue: 0.02)], startPoint: .topLeading, endPoint: .bottomTrailing))
             .preferredColorScheme(.dark).tint(.orange)
+            }
+            }
             .navigationTitle("Jokers & Marbles")
             .sheet(isPresented: $scan) { RoomScanner { value in scan = false; joinURL(value) } }
             .onOpenURL { joinURL($0.absoluteString) }
