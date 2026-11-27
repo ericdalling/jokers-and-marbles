@@ -39,6 +39,7 @@ public struct PublicSession: Codable, Sendable {
     public let winner: Int?
     public let revision: Int
     public let lastMove: PublicMove?
+    public let presentingMove: Bool
 }
 
 public struct PrivateSession: Codable, Sendable {
@@ -56,6 +57,7 @@ public struct HostSession: Sendable {
     private var game: ClassicGame?
     private var revision = 0
     private var lastMove: PublicMove?
+    private var presentingMove = false
 
     public init(capacity: Int, individual: Bool) throws {
         guard (3...6).contains(capacity), individual || capacity % 2 == 0 else {
@@ -151,7 +153,7 @@ public struct HostSession: Sendable {
     public func publicState() -> PublicSession {
         PublicSession(capacity: capacity, individual: individual, members: members, invitations: invitations,
                       seats: seats, activeSeat: game?.activeSeat, marbles: game?.marbles ?? [],
-                      drawCount: game?.drawCount, discard: game?.topDiscard, winner: game?.winner, revision: revision, lastMove: lastMove)
+                      drawCount: game?.drawCount, discard: game?.topDiscard, winner: game?.winner, revision: revision, lastMove: lastMove, presentingMove: presentingMove)
     }
 
     // Caller must bind id to an authenticated connection, never trust a client-supplied identity.
@@ -160,11 +162,16 @@ public struct HostSession: Sendable {
         let seat = seats.firstIndex(of: id)
         guard let seat, let game else { return PrivateSession(seat: nil, hand: [], legalPlays: []) }
         return PrivateSession(seat: seat, hand: game.hand(for: seat),
-                              legalPlays: game.activeSeat == seat ? game.legalPlays() : [])
+                              legalPlays: game.activeSeat == seat && !presentingMove ? game.legalPlays() : [])
+    }
+
+    public mutating func finishPresentation() {
+        guard presentingMove else { return }
+        presentingMove = false; revision += 1
     }
 
     public mutating func play(id: UUID, expectedRevision: Int, move: GamePlay) throws {
-        guard expectedRevision == revision, let seat = seats.firstIndex(of: id), var current = game else {
+        guard !presentingMove, expectedRevision == revision, let seat = seats.firstIndex(of: id), var current = game else {
             throw HostSessionError.unauthorized
         }
         let before = current.marbles
@@ -174,6 +181,7 @@ public struct HostSession: Sendable {
             lastMove = PublicMove(seat: seat, card: card, steps: move.steps, before: before, routes: routes, revision: revision + 1)
         }
         game = current
+        presentingMove = true
         revision += 1
     }
 }
