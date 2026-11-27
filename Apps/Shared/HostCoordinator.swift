@@ -16,6 +16,7 @@ final class HostCoordinator: ObservableObject {
         let callback = approval; approval = nil; pendingConnection = false; callback?(allow)
     }
     private var host: HostSession?
+    private var presentation: DispatchWorkItem?
     private var identities: [MCPeerID: UUID] = [:]
     private var tokens: [UUID: UUID] = [:]
 
@@ -52,6 +53,7 @@ final class HostCoordinator: ObservableObject {
     }
 
     func close() {
+        presentation?.cancel(); presentation = nil
         approveConnection(false)
         transport.stop()
         host = nil; state = nil; connectedPlayers = []; identities = [:]; tokens = [:]; roomCode = ""
@@ -90,6 +92,18 @@ final class HostCoordinator: ObservableObject {
             }
             host = current
             publish()
+            if current.publicState().presentingMove, presentation == nil {
+                let routes = current.publicState().lastMove?.routes ?? []
+                let frames = max(30, routes.reduce(0) { $0 + max(1, $1.count - 1) } * 12)
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self else { return }
+                    self.presentation = nil
+                    self.host?.finishPresentation()
+                    self.publish()
+                }
+                presentation = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4 + Double(frames) * 0.03, execute: work)
+            }
         } catch {
             transport.send(SessionReply.error(String(describing: error)), to: peer)
         }
