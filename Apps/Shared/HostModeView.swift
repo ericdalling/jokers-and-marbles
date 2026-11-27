@@ -82,6 +82,10 @@ struct HostModeView: View {
             Button("End room", role: .destructive) { host.close() }
             Button("Cancel", role: .cancel) {}
         }
+        .alert("Allow nearby controller to connect?", isPresented: Binding(get: { host.pendingConnection }, set: { if !$0 && host.pendingConnection { host.approveConnection(false) } })) {
+            Button("Allow") { host.approveConnection(true) }
+            Button("Deny", role: .cancel) { host.approveConnection(false) }
+        } message: { Text("Approve only when someone you know is joining your room.") }
         .onDisappear { host.close() }
     }
 
