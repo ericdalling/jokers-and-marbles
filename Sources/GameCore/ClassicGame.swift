@@ -95,6 +95,10 @@ public struct ClassicGame: Sendable {
             }
         }
     }
+    // Home lane begins five physical track holes before the starting cross.
+    private func homeEntrance(for seat: Int) -> Int {
+        (rules.entry(of: seat) - 5 + rules.trackLength) % rules.trackLength
+    }
     private func step(_ index: Int, distance: Int) -> MarbleStep? {
         let marble = marbles[index]
         var pos = marble.position
@@ -107,7 +111,7 @@ public struct ClassicGame: Sendable {
                 pos = .home(h + 1)
             case let .track(t):
                 let next = (t + (distance > 0 ? 1 : -1) + rules.trackLength) % rules.trackLength
-                if distance > 0 && next == rules.entry(of: marble.seat) {
+                if distance > 0 && next == homeEntrance(for: marble.seat) {
                     pos = .home(0)
                 } else { pos = .track(next) }
             }
@@ -203,7 +207,7 @@ public struct ClassicGame: Sendable {
                     case .start: break
                     case .track(let t):
                         let next = (t + (backward ? -1 : 1) + rules.trackLength) % rules.trackLength
-                        position = !backward && next == rules.entry(of: marble.seat) ? .home(0) : .track(next)
+                        position = !backward && next == homeEntrance(for: marble.seat) ? .home(0) : .track(next)
                     case .home(let h): position = .home(h + 1)
                     }
                     route.append(position)
