@@ -12,6 +12,15 @@ struct PublicGameplayView: View {
         guard state.seats.indices.contains(seat) else { return nil }
         return state.members.first { $0.id == state.seats[seat] }
     }
+    private func cardLabel(_ card: PlayingCard) -> String {
+        switch card {
+        case .joker: return "Joker"
+        case .standard(let rank, let suit):
+            let ranks = [1: "A", 11: "J", 12: "Q", 13: "K"]
+            let suits: [CardSuit: String] = [.hearts: "♥", .diamonds: "♦", .clubs: "♣", .spades: "♠"]
+            return (ranks[rank.rawValue] ?? String(rank.rawValue)) + (suits[suit] ?? "")
+        }
+    }
     var body: some View {
         VStack(spacing: 12) {
             Text(state.presentingMove ? "Resolving move…" : state.winner == nil ? "\(member(active)?.name ?? "Player")’s turn" : "Game complete")
@@ -23,7 +32,7 @@ struct PublicGameplayView: View {
                     Text("Last move").font(.headline)
                     if let move = state.lastMove {
                         Text(member(move.seat)?.name ?? "Player")
-                        Text(String(describing: move.card))
+                        Text(cardLabel(move.card))
                         Text(move.steps.isEmpty ? "Discarded" : "\(move.steps.count) marble move(s)").font(.caption)
                     } else { Text("Game starting") }
                     Divider()
@@ -33,12 +42,12 @@ struct PublicGameplayView: View {
                             Text(member((active + offset) % state.capacity)?.name ?? "")
                         }
                     }
-                }.padding(14).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
+                }.padding(14).frame(width: 210, alignment: .leading).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
                 ZStack {
                     ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
                                      seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove)
                     VStack(spacing: 5) {
-                        Text("Jokers & Marbles").font(.system(.caption, design: .serif).italic())
+                        
                         HStack {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.05, green: 0.18, blue: 0.42))
@@ -56,7 +65,7 @@ struct PublicGameplayView: View {
                         }
                         Text("Draw: \(state.drawCount ?? 0)").font(.caption)
                     }
-                }.aspectRatio(1, contentMode: .fit).frame(maxHeight: 650)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 VStack(spacing: 8) {
                     ForEach(0..<state.capacity, id: \.self) { seat in
                         if let player = member(seat) {
@@ -73,7 +82,7 @@ struct PublicGameplayView: View {
                                 .shadow(color: colors[player.color].opacity(seat == active ? 0.7 : 0), radius: 10)
                         }
                     }
-                }.frame(maxWidth: 220)
+                }.frame(width: 240)
             }
         }
         .task(id: state.revision) {
