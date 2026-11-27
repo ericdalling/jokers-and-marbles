@@ -108,7 +108,7 @@ final class HostCoordinator: ObservableObject {
         let snapshot = host.publicState()
         state = snapshot
             if snapshot.presentingMove, presentation == nil {
-                let routes = current.publicState().lastMove?.routes ?? []
+                let routes = snapshot.lastMove?.routes ?? []
                 let frames = max(30, routes.reduce(0) { $0 + max(1, $1.count - 1) } * 12)
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
