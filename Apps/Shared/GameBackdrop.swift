@@ -6,7 +6,9 @@ struct GameBackdrop: View {
         Group {
         if let url = Bundle.main.url(forResource: "walnut", withExtension: "jpg"), let image = UIImage(contentsOfFile: url.path) {
             GeometryReader { geo in
-                Image(uiImage: image).resizable().scaledToFill().frame(width: geo.size.width, height: geo.size.height).clipped()
+                Image(uiImage: image.resizableImage(withCapInsets: .zero, resizingMode: .tile))
+                    .resizable(resizingMode: .tile)
+                    .frame(width: geo.size.width, height: geo.size.height).clipped()
             }
         } else {
         Canvas { context, size in
@@ -25,7 +27,7 @@ struct GameBackdrop: View {
             }
         }
         }
-        }.overlay {
+        }.overlay(Color.black.opacity(0.16)).overlay {
             RadialGradient(colors: [.clear, .black.opacity(0.55)], center: .center, startRadius: 40, endRadius: 900)
         }.ignoresSafeArea().allowsHitTesting(false)
     }

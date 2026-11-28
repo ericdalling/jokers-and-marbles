@@ -4,7 +4,16 @@ import GameCore
 @main
 struct TVApp: App {
     var body: some Scene {
-        WindowGroup { HostModeView {} }
+        WindowGroup {
+            #if DEBUG && targetEnvironment(simulator)
+            if VisualReviewFixture.requested {
+                if let fixture = try? VisualReviewFixture.make() { VisualHostReview(fixture: fixture) }
+                else { Text("Visual fixture failed") }
+            } else { HostModeView {} }
+            #else
+            HostModeView {}
+            #endif
+        }
     }
 }
 

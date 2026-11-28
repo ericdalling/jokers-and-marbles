@@ -21,65 +21,89 @@ struct PublicGameplayView: View {
             return (ranks[rank.rawValue] ?? String(rank.rawValue)) + (suits[suit] ?? "")
         }
     }
+    private func badge(_ player: LobbyMember, active: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: player.isBot ? "cpu" : "person.fill")
+            Text(player.name).font(.system(.headline, design: .serif)).lineLimit(1).minimumScaleFactor(0.5)
+        }.font(.headline).padding(.horizontal, 12).padding(.vertical, 6)
+            .background(LinearGradient(colors: [colors[player.color].opacity(0.85), .black], startPoint: .top, endPoint: .bottom), in: Capsule())
+            .overlay(Capsule().strokeBorder(colors[player.color], lineWidth: 2))
+            .shadow(color: colors[player.color].opacity(active ? 0.9 : 0.4), radius: active ? 8 : 3)
+    }
     var body: some View {
-        VStack(spacing: 12) {
-            Text(state.presentingMove ? "Resolving move…" : state.winner == nil ? "\(member(active)?.name ?? "Player")’s turn" : "Game complete")
-                .font(.system(.title, design: .serif).bold())
-                .padding(12).frame(maxWidth: .infinity)
-                .background(colors[member(active)?.color ?? 0].opacity(0.35), in: Capsule())
-            HStack(alignment: .center, spacing: 18) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Last move").font(.headline)
-                    if let move = state.lastMove {
-                        Text(member(move.seat)?.name ?? "Player")
-                        Text(cardLabel(move.card))
-                        Text(move.steps.isEmpty ? "Discarded" : "\(move.steps.count) marble move(s)").font(.caption)
-                    } else { Text("Game starting") }
+        GeometryReader { geo in
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 14) {
+                    PremiumLogo()
                     Divider()
-                    Text("Up next").font(.headline)
-                    if state.winner == nil {
-                        ForEach(1...min(3, state.capacity - 1), id: \.self) { offset in
-                            Text(member((active + offset) % state.capacity)?.name ?? "")
-                        }
-                    }
-                }.padding(14).frame(width: 210, alignment: .leading).background(Color(red: 0.08, green: 0.065, blue: 0.05), in: RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(red: 0.55, green: 0.39, blue: 0.23), lineWidth: 1))
-                ZStack {
-                    ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
-                                     seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove)
-                    VStack(spacing: 5) {
-                        
-                        HStack {
-                            PremiumCardBack().frame(width: 44, height: 62)
-                                .overlay {
-                                    if drawing {
-                                        PremiumCardBack()
-                                            .offset(x: 30, y: -35).rotationEffect(.degrees(12))
-                                    }
-                                }
-                            if let card = state.discard { PremiumCardView(card: card).frame(width: 44, height: 62) } else { RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 44, height: 62) }
-                        }
-                        Text("Draw: \(state.drawCount ?? 0)").font(.caption)
-                    }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                VStack(spacing: 8) {
+                    Text("\(state.capacity) Players").font(.headline)
+                    Text(state.individual ? "Individual game" : "\(state.capacity / 2) Teams")
                     ForEach(0..<state.capacity, id: \.self) { seat in
-                        if let player = member(seat) {
+                        if let player = member(seat), state.individual || seat < state.capacity / 2 {
                             HStack {
-                                Image(systemName: player.isBot ? "cpu" : "person.crop.circle.fill")
-                                    .font(.title2).foregroundStyle(colors[player.color])
-                                VStack(alignment: .leading) {
-                                    Text(player.name).font(.system(.headline, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
-                                    if let partner = state.members.first(where: { $0.id == player.partner }) { Text("With " + partner.name).font(.caption) }
-                                    if !connected.contains(player.id) { Text("Disconnected").font(.caption) }
+                                JewelMarble(color: colors[player.color]).frame(width: 24, height: 24)
+                                if let partner = state.members.first(where: { $0.id == player.partner }) {
+                                    JewelMarble(color: colors[partner.color]).frame(width: 24, height: 24)
                                 }
-                            }.padding(8).frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(red: 0.075, green: 0.06, blue: 0.05), in: RoundedRectangle(cornerRadius: 10))
-                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(colors[player.color], lineWidth: seat == active ? 3 : 1))
-                                .shadow(color: colors[player.color].opacity(seat == active ? 0.7 : 0), radius: 10)
+                                Text(player.name + (state.members.first(where: { $0.id == player.partner }).map { " + " + $0.name } ?? "")).font(.caption)
+                            }
                         }
                     }
-                }.frame(width: 240)
+                    Divider()
+                    Label("Cards", systemImage: "rectangle.on.rectangle").font(.headline)
+                    Text("Draw pile: \(state.drawCount ?? 0)")
+                    Text("Discard: " + (state.discard.map(cardLabel) ?? "Empty"))
+                }.modifier(PremiumPanel()).frame(width: geo.size.width * 0.19)
+                GeometryReader { board in
+                    ZStack {
+                        ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
+                            seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove)
+                            .padding(28)
+                        VStack(spacing: 8) {
+                            if state.capacity >= 4 { PremiumLogo().frame(maxWidth: board.size.width * 0.34) }
+                            HStack(spacing: 20) {
+                                VStack {
+                                    PremiumCardBack().frame(width: 82, height: 116)
+                                        .background { PremiumCardBack().offset(x: -4, y: 4) }
+                                        .shadow(color: .black.opacity(0.7), radius: 5, y: 4)
+                                    Text("Draw pile").font(.caption2)
+                                }
+                                VStack {
+                                    if let card = state.discard { PremiumCardView(card: card).frame(width: 82, height: 116) }
+                                    else { RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.5)).frame(width: 82, height: 116).overlay(Text("Empty").font(.system(size: 16)).lineLimit(1).minimumScaleFactor(0.5)) }
+                                    Text("Discard").font(.caption2)
+                                }
+                            }
+                        }.scaleEffect(state.capacity == 3 ? 0.52 : state.capacity == 4 ? 0.78 : 1)
+                        ForEach(0..<state.capacity, id: \.self) { seat in
+                            if let player = member(seat) {
+                                let angle = Double.pi / 2 + Double(seat) * 2 * Double.pi / Double(state.capacity)
+                                let radius = min(board.size.width, board.size.height) * 0.47
+                                let horizontalRadius = min(board.size.width * 0.48 - 55, radius * 1.18)
+                                badge(player, active: seat == active)
+                                    .position(x: board.size.width / 2 + CGFloat(cos(angle)) * horizontalRadius, y: board.size.height / 2 + CGFloat(sin(angle)) * radius)
+                            }
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("CURRENT TURN").font(.caption)
+                    if let player = member(active) { badge(player, active: true) }
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Last Move").font(.headline)
+                        if let move = state.lastMove {
+                            Text(member(move.seat)?.name ?? "Player")
+                            Text(cardLabel(move.card))
+                        } else { Text("No moves yet"); Text("The game is ready.").font(.caption) }
+                        Divider()
+                        Text("Next").font(.headline)
+                        if state.winner == nil {
+                            ForEach(1...min(2, state.capacity - 1), id: \.self) { offset in
+                                Text(member((active + offset) % state.capacity)?.name ?? "")
+                            }
+                        }
+                    }.modifier(PremiumPanel())
+                }.frame(width: geo.size.width * 0.19)
             }
         }
         .task(id: state.revision) {
