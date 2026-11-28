@@ -83,7 +83,7 @@ struct HostModeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
-        .background(GameBackdrop().ignoresSafeArea())
+        .background(GameBackdrop(artwork: host.state?.activeSeat == nil ? "host-background" : nil).ignoresSafeArea())
         .confirmationDialog("End this room for everyone?", isPresented: $confirmClose) {
             Button("End room", role: .destructive) {
                 host.close()
