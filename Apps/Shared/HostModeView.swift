@@ -12,7 +12,7 @@ struct HostModeView: View {
         GeometryReader { geometry in
         ScrollView {
             VStack(spacing: 14) {
-                Text("Jokers & Marbles").font(.system(.largeTitle, design: .serif).italic())
+                PremiumLogo().frame(maxWidth: 620)
                 if host.state?.activeSeat == nil { Text("Host Mode").font(.headline) }
                 if let state = host.state {
                     if state.activeSeat != nil {
@@ -30,11 +30,26 @@ struct HostModeView: View {
                                 Text(host.roomCode).font(.system(size: 44, weight: .bold, design: .monospaced))
                                 Text("Or enter the room code")
                             }
-                        }
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Game Rules").font(.title2)
+                                ForEach(Ruleset.allCases, id: \.self) { rules in
+                                    Button {
+                                        host.configureRuleset(rules)
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: state.ruleset == rules ? "largecircle.fill.circle" : "circle")
+                                            Text(rules.title).font(.system(.headline, design: .serif))
+                                        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                                            .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 12))
+                                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.yellow.opacity(state.ruleset == rules ? 1 : 0.25), lineWidth: 2))
+                                    }
+                                }
+                            }.frame(maxWidth: 500)
+                        }.modifier(PremiumPanel())
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 210))]) {
                             ForEach(state.members) { member in
                                 VStack {
-                                    Circle().fill(colors[member.color]).frame(width: 32, height: 32)
+                                    JewelMarble(color: colors[member.color]).frame(width: 32, height: 32)
                                     Text(member.name).font(.headline)
                                     Text(!host.connectedPlayers.contains(member.id) ? "Disconnected" : member.ready ? "Ready" : "Not ready")
                                     if let partner = state.members.first(where: { $0.id == member.partner }) {
