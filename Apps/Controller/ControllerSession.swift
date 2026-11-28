@@ -114,82 +114,97 @@ struct ControllerLobbyView: View {
                     client.send(.play(revision: state.revision, move: move))
                 }
             } else {
-            Form {
-                if let state = client.state, let player = client.player,
-                   let member = state.members.first(where: { $0.id == player }) {
-                    Section("Players") {
-                        ForEach(state.members) { other in
-                            HStack {
-                                Circle().fill(colors[other.color]).frame(width: 20, height: 20)
-                                Text(other.name)
-                                Spacer()
-                                Text(other.ready ? "Ready" : "Waiting")
-                                if !state.individual, state.activeSeat == nil, other.id != player,
-                                   other.partner == nil, member.partner == nil {
-                                    Button("Invite") { client.send(.invite(other.id)) }
+            ScrollView {
+                VStack(spacing: 20) {
+                    PremiumLogo()
+                    if let state = client.state, let player = client.player,
+                       let member = state.members.first(where: { $0.id == player }) {
+                        if let invitation = state.invitations.first(where: { $0.recipient == player }),
+                           let sender = state.members.first(where: { $0.id == invitation.sender }) {
+                            Text("Teammate Invitation").font(.title2.bold())
+                            VStack(spacing: 16) {
+                                HStack {
+                                    JewelMarble(color: colors[sender.color]).frame(width: 58, height: 58)
+                                    Image(systemName: "person.2.fill")
+                                    JewelMarble(color: colors[member.color]).frame(width: 58, height: 58)
                                 }
+                                Text(sender.name + " wants to be your teammate!").font(.title2.bold()).multilineTextAlignment(.center)
+                            }.modifier(PremiumPanel())
+                            Button("Accept Invitation") { client.send(.respond(sender: invitation.sender, accept: true)) }.buttonStyle(JewelButton(color: colors[member.color]))
+                            Button("Decline") { client.send(.respond(sender: invitation.sender, accept: false)) }.buttonStyle(JewelButton(color: .brown))
+                        } else {
+                            if let partner = state.members.first(where: { $0.id == member.partner }) {
+                                Label("Team Confirmed", systemImage: "checkmark.circle.fill").font(.title2.bold()).foregroundStyle(.green)
+                                VStack {
+                                    HStack {
+                                        JewelMarble(color: colors[member.color]).frame(width: 48, height: 48)
+                                        JewelMarble(color: colors[partner.color]).frame(width: 48, height: 48)
+                                    }
+                                    Text(member.name + " + " + partner.name).font(.headline)
+                                }.modifier(PremiumPanel())
+                            }
+                            Text(!state.individual && member.partner == nil ? "Choose Your Teammate" : "Game Lobby").font(.title2.bold())
+                            VStack(spacing: 12) {
+                                ForEach(state.members) { other in
+                                    HStack {
+                                        JewelMarble(color: colors[other.color]).frame(width: 30, height: 30)
+                                        Text(other.name)
+                                        Spacer()
+                                        if !state.individual && other.id != player && other.partner == nil && member.partner == nil {
+                                            Button("Invite") { client.send(.invite(other.id)) }.buttonStyle(.bordered)
+                                        } else {
+                                            Text(other.ready ? "Ready" : "Waiting").font(.caption)
+                                        }
+                                    }
+                                }
+                            }.modifier(PremiumPanel())
+                            if member.partner != nil { Button("Change teammate") { client.send(.unpair) } }
+                            Button(member.ready ? "Not ready" : "I’m Ready") { client.send(.ready(!member.ready)) }
+                                .buttonStyle(JewelButton(color: .green))
+                                .disabled(!state.individual && member.partner == nil)
+                        }
+                    } else if let state = client.state {
+                        Label("Game Found", systemImage: "checkmark.circle.fill").font(.title2.bold()).foregroundStyle(.green).modifier(PremiumPanel())
+                        Text("Your Name").frame(maxWidth: .infinity, alignment: .leading)
+                        TextField("Your name", text: $name).modifier(PremiumPanel())
+                        Text("Choose Your Marble Color").font(.headline)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 18) {
+                            ForEach(0..<6, id: \.self) { i in
+                                let taken = state.members.contains { $0.color == i }
+                                Button { color = i } label: {
+                                    JewelMarble(color: colors[i]).frame(width: 62, height: 62)
+                                        .overlay { if color == i { Image(systemName: "checkmark").font(.title.bold()).foregroundStyle(.white) } }
+                                        .padding(5).overlay(Circle().strokeBorder(color == i ? Color.yellow : Color.clear, lineWidth: 3))
+                                }.buttonStyle(.plain).disabled(taken).opacity(taken ? 0.3 : 1)
                             }
                         }
-                    }
-                    if state.activeSeat == nil {
-                        ForEach(state.invitations.filter { $0.recipient == player }, id: \.sender) { invitation in
-                            Text("Invitation from " + (state.members.first { $0.id == invitation.sender }?.name ?? "Player"))
-                            Button("Accept") { client.send(.respond(sender: invitation.sender, accept: true)) }
-                            Button("Decline") { client.send(.respond(sender: invitation.sender, accept: false)) }
-                        }
-                        if member.partner != nil { Button("Change teammate") { client.send(.unpair) } }
-                        Button(member.ready ? "Not ready" : "Ready") { client.send(.ready(!member.ready)) }
-                            .disabled(!state.individual && member.partner == nil)
-                    } else if let personal = client.personal {
-                        Section("Your private hand") {
-                            ForEach(Array(personal.hand.enumerated()), id: \.offset) { _, card in Text(String(describing: card)) }
-                        }
-                        Section("Legal moves") {
-                            ForEach(Array(personal.legalPlays.enumerated()), id: \.offset) { index, move in
-                                Button("Play card \(move.cardIndex + 1) • option \(index + 1)") {
-                                    client.send(.play(revision: state.revision, move: move))
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if let state = client.state {
-                        Section("Player setup") {
-                            TextField("Your name", text: $name)
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
-                                ForEach(0..<6, id: \.self) { i in
-                                    let taken = state.members.contains { $0.color == i }
-                                    Button { color = i } label: {
-                                        VStack {
-                                            Circle().fill(RadialGradient(colors: [.white, colors[i], .black], center: .topLeading, startRadius: 0, endRadius: 46)).frame(width: 46, height: 46)
-                                            Text(["Red", "Blue", "Green", "Yellow", "Purple", "Orange"][i]).font(.caption)
-                                            if taken { Text("Taken").font(.caption2) }
-                                        }.frame(maxWidth: .infinity).padding(8)
-                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(color == i ? Color.orange : Color.clear, lineWidth: 2))
-                                    }.buttonStyle(.plain).disabled(taken).opacity(taken ? 0.35 : 1)
-                                }
-                            }
-                            Button("Join") { client.send(.join(name: name, color: color)) }
-                                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil || state.members.contains { $0.color == color })
-                        }
+                        Button("Continue") { client.send(.join(name: name, color: color)) }
+                            .buttonStyle(JewelButton(color: colors[color]))
+                            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil || state.members.contains { $0.color == color })
                     } else {
-                        Section("Join game") {
-                            Button("Scan QR code") { scan = true }
-                            TextField("Room code", text: $code).keyboardType(.numberPad)
-                            Button("Connect to room") { client.browse(code) }.disabled(code.count != 6 || !code.allSatisfy(\.isNumber))
-                        }
+                        HStack { ForEach(0..<6, id: \.self) { i in JewelMarble(color: colors[i]).frame(width: 34, height: 34) } }
+                        Text("Scan to Join Game").font(.title2.bold())
+                        Button { scan = true } label: {
+                            VStack(spacing: 16) {
+                                Image(systemName: "qrcode.viewfinder").font(.system(size: 110))
+                                Text("Scan QR code")
+                            }.frame(maxWidth: .infinity).padding(24).modifier(PremiumPanel())
+                        }.buttonStyle(.plain)
+                        Text("Point your camera at the QR code on the host to join a game.").multilineTextAlignment(.center)
+                        TextField("Room code", text: $code).keyboardType(.numberPad).modifier(PremiumPanel())
+                        Button("Connect to room") { client.browse(code) }.buttonStyle(JewelButton(color: .brown)).disabled(code.count != 6 || !code.allSatisfy(\.isNumber))
                     }
                     if let hostMode, client.player == nil { Button("Switch to Host Mode") { client.leave(); hostMode() } }
-                }
-                if !client.status.isEmpty { Text(client.status) }
-                if client.player != nil && client.state == nil { Button("Reconnect") { client.browse(code) } }
-                if !client.room.isEmpty { Button("Leave room", role: .destructive) { client.leave() } }
-            }.scrollContentBackground(.hidden)
-            .background(GameBackdrop())
+                    if !client.status.isEmpty { Text(client.status).font(.caption) }
+                    if client.player != nil && client.state == nil { Button("Reconnect") { client.browse(code) } }
+                    if !client.room.isEmpty { Button("Leave room", role: .destructive) { client.leave() } }
+                }.padding(24).frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
+            }.background(GameBackdrop())
             .preferredColorScheme(.dark).tint(.orange)
             }
             }
-            .navigationTitle("Jokers & Marbles")
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $scan) { RoomScanner { value in scan = false; joinURL(value) } }
             .onOpenURL { joinURL($0.absoluteString) }
         }
