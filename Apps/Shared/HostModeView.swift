@@ -20,50 +20,51 @@ struct HostModeView: View {
                             .frame(height: max(220, geometry.size.height - 180))
 
                     } else {
-                        HStack(spacing: 30) {
-                            if let image = qr(host.roomCode) {
-                                Image(decorative: image, scale: 1).interpolation(.none).resizable()
-                                    .frame(width: 180, height: 180).padding(12).background(.white)
-                            }
-                            VStack {
-                                Text("Scan to join")
-                                Text(host.roomCode).font(.system(size: 44, weight: .bold, design: .monospaced))
-                                Text("Or enter the room code")
-                            }
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Game Rules").font(.title2)
-                                ForEach(Ruleset.allCases, id: \.self) { rules in
-                                    Button {
-                                        host.configureRuleset(rules)
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: state.ruleset == rules ? "largecircle.fill.circle" : "circle")
-                                            Text(rules.title).font(.system(.headline, design: .serif))
-                                        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                                            .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 12))
-                                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.yellow.opacity(state.ruleset == rules ? 1 : 0.25), lineWidth: 2))
-                                    }
+                        HStack(alignment: .top, spacing: 28) {
+                            VStack(spacing: 12) {
+                                Text("Join Game").font(.system(.title2, design: .serif))
+                                if let image = qr(host.roomCode) {
+                                    Image(decorative: image, scale: 1).interpolation(.none).resizable()
+                                        .frame(width: 180, height: 180).padding(12).background(.white, in: RoundedRectangle(cornerRadius: 12))
                                 }
-                            }.frame(maxWidth: 500)
-                        }.modifier(PremiumPanel())
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 210))]) {
-                            ForEach(state.members) { member in
-                                VStack {
-                                    JewelMarble(color: colors[member.color]).frame(width: 32, height: 32)
-                                    Text(member.name).font(.headline)
-                                    Text(!host.connectedPlayers.contains(member.id) ? "Disconnected" : member.ready ? "Ready" : "Not ready")
-                                    if let partner = state.members.first(where: { $0.id == member.partner }) {
-                                        Text("With " + partner.name).font(.caption)
+                                Text("Scan with your phone")
+                                Text(host.roomCode).font(.system(.headline, design: .monospaced))
+                            }
+                            Divider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Players (\(state.members.count) of 6)").font(.system(.title2, design: .serif))
+                                ForEach(state.members) { member in
+                                    HStack {
+                                        JewelMarble(color: colors[member.color]).frame(width: 26, height: 26)
+                                        VStack(alignment: .leading) {
+                                            Text(member.name).lineLimit(1)
+                                            if let partner = state.members.first(where: { $0.id == member.partner }) {
+                                                Text("With " + partner.name).font(.caption)
+                                            }
+                                        }
+                                        Spacer()
+                                        Text(!host.connectedPlayers.contains(member.id) ? "Disconnected" : member.ready ? "Ready" : "Not ready")
+                                            .foregroundStyle(member.ready && host.connectedPlayers.contains(member.id) ? Color.green : Color.secondary)
+                                    }.padding(8).background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+                                }
+                                ForEach(state.members.count..<6, id: \.self) { slot in
+                                    HStack {
+                                        Image(systemName: slot < 3 && !state.members.isEmpty ? "cpu" : "circle.dashed")
+                                        Text(slot < 3 && !state.members.isEmpty ? "Robot • auto-fill if needed" : "Open slot")
+                                        Spacer()
+                                    }.padding(8).foregroundStyle(.secondary)
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Game rules").font(.headline)
+                                Picker("Game rules", selection: Binding(get: { state.ruleset }, set: { host.configureRuleset($0) })) {
+                                    ForEach(Ruleset.allCases, id: \.self) { rules in
+                                        Text(rules.title).tag(rules)
                                     }
-                                }.padding().frame(maxWidth: .infinity)
-                                    .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 16))
-                                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(colors[member.color].opacity(0.7), lineWidth: 2))
-                            }
-                            ForEach(0..<max(0, 3 - state.members.count), id: \.self) { _ in
-                                VStack { Image(systemName: "cpu"); Text("Robot • auto-fill") }.padding()
-                            }
-                        }
-                        Text("\(state.members.count) of 6 players joined")
+                                }.pickerStyle(.menu)
+                            }.frame(maxWidth: 320)
+                        }.padding(20).modifier(PremiumPanel())
+                        Text(state.members.isEmpty ? "Waiting for players to join" : state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) } ? "Ready to start" : "Waiting for players to be ready")
                         if [4, 6].contains(state.members.count) { Button(state.individual ? "Switch to teams" : "Switch to individual") { host.configureTeams(state.individual) } }
                         Button("Start game") { host.start() }
                             .disabled(state.members.isEmpty || !state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) })
