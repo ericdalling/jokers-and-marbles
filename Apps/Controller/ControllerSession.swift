@@ -103,6 +103,7 @@ struct ControllerLobbyView: View {
     @State private var name = ""
     @State private var color = 0
     @State private var scan = false
+    @State private var manualEntry = false
     let hostMode: (() -> Void)?
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
 
@@ -182,23 +183,28 @@ struct ControllerLobbyView: View {
                             .buttonStyle(JewelButton(color: colors[color]))
                             .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || client.player != nil || state.members.contains { $0.color == color })
                     } else {
-                        HStack { ForEach(0..<6, id: \.self) { i in JewelMarble(color: colors[i]).frame(width: 34, height: 34) } }
-                        Text("Scan to Join Game").font(.title2.bold())
-                        Button { scan = true } label: {
-                            VStack(spacing: 16) {
-                                Image(systemName: "qrcode.viewfinder").font(.system(size: 110))
-                                Text("Scan QR code")
-                            }.frame(maxWidth: .infinity).padding(24).modifier(PremiumPanel())
-                        }.buttonStyle(.plain)
-                        Text("Point your camera at the QR code on the host to join a game.").multilineTextAlignment(.center)
-                        TextField("Room code", text: $code).keyboardType(.numberPad).modifier(PremiumPanel())
-                        Button("Connect to room") { client.browse(code) }.buttonStyle(JewelButton(color: .brown)).disabled(code.count != 6 || !code.allSatisfy(\.isNumber))
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 24) {
+                                joinButton
+                                if let hostMode { hostButton(hostMode) }
+                            }
+                            VStack(spacing: 20) {
+                                joinButton
+                                if let hostMode { hostButton(hostMode) }
+                            }
+                        }
+                        Button { manualEntry.toggle() } label: {
+                            Label("Enter Room Code", systemImage: "keyboard")
+                        }.buttonStyle(JewelButton(color: .brown))
+                        if manualEntry {
+                            TextField("Room code", text: $code).keyboardType(.numberPad).modifier(PremiumPanel())
+                            Button("Connect to room") { client.browse(code) }.buttonStyle(JewelButton(color: .brown)).disabled(code.count != 6 || !code.allSatisfy(\.isNumber))
+                        }
                     }
-                    if let hostMode, client.player == nil { Button("Switch to Host Mode") { client.leave(); hostMode() } }
                     if !client.status.isEmpty { Text(client.status).font(.caption) }
                     if client.player != nil && client.state == nil { Button("Reconnect") { client.browse(code) } }
                     if !client.room.isEmpty { Button("Leave room", role: .destructive) { client.leave() } }
-                }.padding(24).frame(maxWidth: 560)
+                }.padding(24).frame(maxWidth: hostMode != nil && client.state == nil ? 1000 : 560)
                 .frame(maxWidth: .infinity)
             }.background(GameBackdrop())
             .preferredColorScheme(.dark).tint(.orange)
@@ -208,6 +214,24 @@ struct ControllerLobbyView: View {
             .sheet(isPresented: $scan) { RoomScanner { value in scan = false; joinURL(value) } }
             .onOpenURL { joinURL($0.absoluteString) }
         }
+    }
+    private var joinButton: some View {
+        Button { scan = true } label: {
+            VStack(spacing: 12) {
+                Image(systemName: "qrcode.viewfinder").font(.system(size: 54))
+                Text("Join a Game").font(.system(.title, design: .serif).bold())
+                Text("Scan a QR code").font(.subheadline)
+            }.frame(minWidth: 180, minHeight: 150)
+        }.buttonStyle(JewelButton(color: .green))
+    }
+    private func hostButton(_ action: @escaping () -> Void) -> some View {
+        Button { client.leave(); action() } label: {
+            VStack(spacing: 12) {
+                Image(systemName: "person.3.fill").font(.system(size: 54))
+                Text("Host a Game").font(.system(.title, design: .serif).bold())
+                Text("Start a new game and invite players").font(.subheadline)
+            }.frame(minWidth: 180, minHeight: 150)
+        }.buttonStyle(JewelButton(color: .brown))
     }
     private func joinURL(_ value: String) {
         guard let url = URLComponents(string: value), url.scheme == "jokersmarbles", url.host == "join",
