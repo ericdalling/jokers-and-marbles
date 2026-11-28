@@ -19,9 +19,9 @@ else
   SCHEME=JokersController
   BUNDLE=com.ericdalling.jokersandmarbles.controller
 fi
-xcrun simctl boot "$UDID"
+xcrun simctl boot "$UDID" || xcrun simctl list devices booted | grep -F "$UDID"
 xcrun simctl bootstatus "$UDID" -b
-xcodebuild -scheme "$SCHEME" -configuration Debug -destination "id=$UDID" -derivedData /tmp/visual-build CODE_SIGNING_ALLOWED=NO build > visual-review/build.log 2>&1
+xcodebuild -project JokersAndMarbles.xcodeproj -scheme "$SCHEME" -configuration Debug -destination "id=$UDID" -derivedData /tmp/visual-build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee visual-review/build.log
 APP=$(find /tmp/visual-build/Build/Products -name "$SCHEME.app" -type d | head -1)
 test -n "$APP"
 xcrun simctl install "$UDID" "$APP"
