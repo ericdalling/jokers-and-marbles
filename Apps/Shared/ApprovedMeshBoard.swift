@@ -67,7 +67,7 @@ private struct ApprovedGLB {
                 if material.diffuse.contents == nil { material.diffuse.contents = UIColor(red: 0.91, green: 0.76, blue: 0.53, alpha: 1) }
             } else {
                 let number = Int(name.split(separator: " ").last ?? "") ?? 0
-                material.diffuse.contents = number < 17 ? UIColor.darkGray : color
+                material.diffuse.contents = number < 17 ? UIColor(red: 0.38, green: 0.28, blue: 0.17, alpha: 1) : UIColor(red: 0.09, green: 0.05, blue: 0.025, alpha: 1)
             }
             geometry.materials = [material]
             let child = SCNNode(geometry: geometry)
@@ -87,7 +87,7 @@ struct ApprovedMeshBoard: View {
     var body: some View {
         GeometryReader { geo in
             if let scene = makeScene(size: geo.size) {
-                SceneView(scene: scene, pointOfView: scene.rootNode.childNode(withName: "camera", recursively: false), options: [], preferredFramesPerSecond: 30)
+                TransparentBoardScene(scene: scene)
                     .allowsHitTesting(false)
             }
         }
@@ -109,7 +109,7 @@ struct ApprovedMeshBoard: View {
             scene.rootNode.addChildNode(pivot)
         }
         for marble in marbles {
-            let sphere = SCNSphere(radius: 0.018)
+            let sphere = SCNSphere(radius: 0.023)
             sphere.segmentCount = 32
             let material = SCNMaterial()
             material.lightingModel = .physicallyBased
@@ -128,18 +128,18 @@ struct ApprovedMeshBoard: View {
         camera.name = "camera"
         camera.camera = SCNCamera()
         camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = extent * 2 / 1000 * max(1, Double(size.height / size.width))
+        camera.camera?.orthographicScale = extent / 1000 * max(1, Double(size.height / size.width))
         camera.position = SCNVector3(0, 0, 4)
         scene.rootNode.addChildNode(camera)
         let ambient = SCNNode()
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
-        ambient.light?.intensity = 650
+        ambient.light?.intensity = 350
         scene.rootNode.addChildNode(ambient)
         let key = SCNNode()
         key.light = SCNLight()
         key.light?.type = .directional
-        key.light?.intensity = 1100
+        key.light?.intensity = 850
         key.eulerAngles = SCNVector3(-0.4, -0.5, 0)
         scene.rootNode.addChildNode(key)
         return scene
@@ -149,4 +149,21 @@ struct ApprovedMeshBoard: View {
 struct MeshMarble {
     let point: CGPoint
     let color: Int
+}
+
+private struct TransparentBoardScene: UIViewRepresentable {
+    let scene: SCNScene
+    func makeUIView(context: Context) -> SCNView {
+        let view = SCNView(frame: .zero)
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.layer.isOpaque = false
+        view.antialiasingMode = .multisampling4X
+        view.isUserInteractionEnabled = false
+        return view
+    }
+    func updateUIView(_ view: SCNView, context: Context) {
+        view.scene = scene
+        view.pointOfView = scene.rootNode.childNode(withName: "camera", recursively: false)
+    }
 }
