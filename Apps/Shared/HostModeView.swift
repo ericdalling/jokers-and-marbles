@@ -5,6 +5,9 @@ import GameCore
 struct HostModeView: View {
     @StateObject private var host = HostCoordinator()
     @State private var confirmClose = false
+    #if os(tvOS)
+    @State private var choosingRules = false
+    #endif
     let close: () -> Void
     private let colors: [Color] = [.red, .blue, .green, .yellow, .purple, .orange]
 
@@ -55,6 +58,7 @@ struct HostModeView: View {
                                     }.padding(8).foregroundStyle(.secondary)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading)
+                            #if !os(tvOS)
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Game rules").font(.headline)
                                 Picker("Game rules", selection: Binding(get: { state.ruleset }, set: { host.configureRuleset($0) })) {
@@ -63,8 +67,23 @@ struct HostModeView: View {
                                     }
                                 }.pickerStyle(.menu)
                             }.frame(maxWidth: 320)
+                            #endif
                         }.padding(20).modifier(PremiumPanel())
                         Text(state.members.isEmpty ? "Waiting for players to join" : state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) } ? "Ready to start" : "Waiting for players to be ready")
+                        #if os(tvOS)
+                        Button {
+                            choosingRules = true
+                        } label: {
+                            Label("Game rules: " + state.ruleset.title, systemImage: "list.bullet")
+                        }
+                        .buttonStyle(.bordered)
+                        .confirmationDialog("Choose game rules", isPresented: $choosingRules, titleVisibility: .visible) {
+                            ForEach(Ruleset.allCases, id: \.self) { rules in
+                                Button(rules.title) { host.configureRuleset(rules) }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        }
+                        #endif
                         if [4, 6].contains(state.members.count) { Button(state.individual ? "Switch to teams" : "Switch to individual") { host.configureTeams(state.individual) } }
                         Button("Start game") { host.start() }
                             .disabled(state.members.isEmpty || !state.members.allSatisfy { $0.ready && host.connectedPlayers.contains($0.id) })
