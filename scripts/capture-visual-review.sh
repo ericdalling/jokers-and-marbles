@@ -21,7 +21,7 @@ else
 fi
 xcrun simctl boot "$UDID" || xcrun simctl list devices booted | grep -F "$UDID"
 xcrun simctl bootstatus "$UDID" -b
-xcodebuild -project JokersAndMarbles.xcodeproj -scheme "$SCHEME" -configuration Debug -destination "id=$UDID" -derivedDataPath /tmp/visual-build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee visual-review/build.log
+xcodebuild -project JokersAndMarbles.xcodeproj -scheme "$SCHEME" -configuration Debug -destination "id=$UDID" -derivedDataPath /tmp/visual-build CODE_SIGNING_ALLOWED=NO ASSETCATALOG_COMPILER_APPICON_NAME= build 2>&1 | tee visual-review/build.log
 APP=$(find /tmp/visual-build/Build/Products -name "$SCHEME.app" -type d | head -1)
 test -n "$APP"
 xcrun simctl install "$UDID" "$APP"
