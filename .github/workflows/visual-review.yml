@@ -1,0 +1,35 @@
+name: Visual review
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: visual-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [iphone, ipad, tv]
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate project
+        run: |
+          python3 scripts/prepare-approved-assets.py
+          xcodegen generate
+      - name: Build and capture production views
+        env:
+          DEVICE: ${{ matrix.device }}
+        run: bash scripts/capture-visual-review.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-review-${{ matrix.device }}-${{ github.sha }}
+          path: visual-review/
+          retention-days: 14
+          if-no-files-found: error
