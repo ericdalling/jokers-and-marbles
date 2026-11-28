@@ -57,7 +57,7 @@ struct PublicGameplayView: View {
                 GeometryReader { board in
                     ZStack {
                         ModularBoardView(playerCount: state.capacity, activePlayer: active, gameMarbles: state.marbles,
-                            seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove)
+                            seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 }, lastMove: state.lastMove, presentingMove: state.presentingMove)
                             .padding(28)
                         VStack(spacing: 8) {
                             if state.capacity >= 4 { PremiumLogo().frame(maxWidth: board.size.width * 0.34) }
@@ -94,6 +94,13 @@ struct PublicGameplayView: View {
                         if let move = state.lastMove {
                             Text(member(move.seat)?.name ?? "Player")
                             Text(cardLabel(move.card))
+                            ForEach(move.bumpedMarbles(after: state.marbles), id: \.self) { index in
+                                let marble = state.marbles[index]
+                                let name = member(marble.seat)?.name ?? "Player"
+                                Label(marble.position == .start ? "\(name): sent back to Start" : "\(name): bumped into Home",
+                                      systemImage: "arrow.uturn.backward.circle.fill")
+                                    .font(.caption).foregroundStyle(.yellow)
+                            }
                         } else { Text("No moves yet"); Text("The game is ready.").font(.caption) }
                         Divider()
                         Text("Next").font(.headline)

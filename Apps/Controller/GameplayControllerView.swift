@@ -5,6 +5,7 @@ struct GameplayControllerView: View {
     let state: PublicSession
     let personal: PrivateSession
     let player: UUID
+    var reconnecting = false
     let submit: (GamePlay) -> Void
     @State private var selectedCard: Int?
     @State private var selectedMarble: Int?
@@ -13,7 +14,7 @@ struct GameplayControllerView: View {
     @State private var submitted = false
     @State private var replacementGlow = false
     @State private var showRules = false
-    private var active: Bool { personal.seat == state.activeSeat && state.winner == nil && !state.presentingMove }
+    private var active: Bool { !reconnecting && personal.seat == state.activeSeat && state.winner == nil && !state.presentingMove }
     private var member: LobbyMember? { state.members.first { $0.id == player } }
     private var options: [GamePlay] { personal.legalPlays.filter { $0.cardIndex == selectedCard } }
     private var filtered: [GamePlay] { options.filter { selectedMarble == nil || $0.steps.first?.marble == selectedMarble } }
@@ -26,8 +27,15 @@ struct GameplayControllerView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     HStack { Text(member?.name ?? "Player").font(.system(.title, design: .serif).bold()); Spacer(); Button("Rules") { showRules = true } }
-                    Text(state.winner != nil ? "Game complete" : state.presentingMove ? "Resolving move…" : active ? "Your turn" : "Waiting for " + turnName)
+                    Text(reconnecting ? "Reconnecting…" : state.winner != nil ? "Game complete" : state.presentingMove ? "Resolving move…" : active ? "Your turn" : "Waiting for " + turnName)
                         .font(.headline).padding(10).background(.orange.opacity(active ? 0.35 : 0.12), in: Capsule())
+                    if let move = state.lastMove {
+                        ForEach(move.bumpedMarbles(after: state.marbles).filter { state.marbles[$0].seat == personal.seat }, id: \.self) { index in
+                            Label(state.marbles[index].position == .start ? "Your marble was sent back to Start" : "Your marble was bumped into Home",
+                                  systemImage: "arrow.uturn.backward.circle.fill")
+                                .font(.subheadline.bold()).foregroundStyle(.yellow)
+                        }
+                    }
                     if let partner = state.members.first(where: { $0.id == member?.partner }) {
                         Text("Teammate: " + partner.name).font(.caption)
                     }
@@ -48,7 +56,10 @@ struct GameplayControllerView: View {
                         Text("7: move seven spaces, optionally split between two marbles")
                         Text("8: move backward eight spaces")
                         Text("Jack, Queen, King: enter or move ten")
-                        Text("Joker: replace an eligible opposing or teammate marble when no ordinary move is available")
+                        Text("Joker: replace an eligible opposing or teammate marble")
+                    }
+                    Section("Movement") {
+                        Text("You may pass any marble on the track. You cannot land on your own marble or pass another marble in your home lane.")
                     }
                     Section("Turns") {
                         Text("Play one card, resolve the move, then automatically draw a replacement. If no move is legal, discard a card.")
@@ -56,6 +67,9 @@ struct GameplayControllerView: View {
                     }
                 }.navigationTitle("Game rules").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showRules = false } } }
             }
+        }
+        .onChange(of: reconnecting) { _, value in
+            if value { submitted = false }
         }
         .onChange(of: state.revision) { _, _ in selectedCard = nil; selectedMarble = nil; selectedMove = nil; submitted = false }
         .task(id: state.revision) {
@@ -71,11 +85,11 @@ struct GameplayControllerView: View {
                          selectableMarbles: active && !submitted ? Array(Set(options.compactMap { $0.steps.first?.marble })) : [],
                          selectedMarble: selectedMarble,
                          onMarble: { selectedMarble = $0; selectedMove = nil },
-                         destinations: selectedMarble == nil || submitted ? [] : Array(Set(filtered.compactMap { $0.steps.first })),
+                         destinations: !active || selectedMarble == nil || submitted ? [] : Array(Set(filtered.compactMap { $0.steps.first })),
                          onDestination: { step in
                              let matches = filtered.filter { $0.steps.first == step }
                              if matches.count == 1 { selectedMove = matches.first }
-                         }, lastMove: state.lastMove)
+                         }, lastMove: state.lastMove, presentingMove: state.presentingMove)
             .aspectRatio(1, contentMode: .fit)
             .scaleEffect(zoom).clipped()
             .gesture(MagnifyGesture().onChanged { zoom = min(2.5, max(1, $0.magnification)) })

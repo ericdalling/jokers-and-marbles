@@ -116,8 +116,8 @@ public struct ClassicGame: Sendable {
                 } else { pos = .track(next) }
             }
             if let other = occupant(pos, seat: marble.seat), other != index {
-                if marbles[other].seat == marble.seat { return nil }
-                if n == abs(distance), !canCapture(other) { return nil }
+                if case .home = pos { return nil }
+                if n == abs(distance), marbles[other].seat == marble.seat || !canCapture(other) { return nil }
             }
         }
         return MarbleStep(marble: index, destination: pos)
@@ -179,8 +179,6 @@ public struct ClassicGame: Sendable {
             }
             plays += options.map { GamePlay(cardIndex: cardIndex, steps: $0) }
         }
-        let ordinary = plays.filter { hands[activeSeat][$0.cardIndex] != .joker }
-        if !ordinary.isEmpty { return ordinary }
         if plays.isEmpty {
             return hands[activeSeat].indices.map { GamePlay(cardIndex: $0, steps: []) }
         }

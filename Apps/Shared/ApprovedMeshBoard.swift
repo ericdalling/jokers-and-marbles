@@ -89,18 +89,16 @@ struct ApprovedMeshBoard: View {
     private let palette: [UIColor] = [.systemRed, .systemBlue, .systemGreen, .systemYellow, .systemPurple, .systemOrange]
     var body: some View {
         GeometryReader { geo in
-            if let scene = makeScene(size: geo.size) {
-                TransparentBoardScene(scene: scene)
-                    .allowsHitTesting(false)
-            }
+            TransparentBoardScene(playerCount: playerCount, size: geo.size, marbles: marbles,
+                                  palette: palette, makeScene: makeScene)
+                .allowsHitTesting(false)
         }
     }
-    private func makeScene(size: CGSize) -> SCNScene? {
-        guard let asset = Self.asset, (3...6).contains(playerCount), size.width > 0, size.height > 0 else { return nil }
+    private func makeScene() -> SCNScene? {
+        guard let asset = Self.asset, (3...6).contains(playerCount) else { return nil }
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
         let n = Double(playerCount)
-        let extent = 970 / (2 * sin(.pi / n)) + 160
         for seat in 0..<playerCount {
             let colorIndex = seatColors.indices.contains(seat) ? seatColors[seat] : seat
             guard let piece = asset.piece(color: palette[colorIndex % palette.count]) else { return nil }
@@ -111,27 +109,10 @@ struct ApprovedMeshBoard: View {
             pivot.addChildNode(piece)
             scene.rootNode.addChildNode(pivot)
         }
-        for marble in marbles {
-            let sphere = SCNSphere(radius: 0.025)
-            sphere.segmentCount = 48
-            let material = SCNMaterial()
-            material.lightingModel = .physicallyBased
-            material.diffuse.contents = palette[marble.color % palette.count]
-            material.roughness.contents = 0.09
-            material.metalness.contents = 0
-            material.clearCoat.contents = 1.0
-            material.clearCoatRoughness.contents = 0.06
-            sphere.materials = [material]
-            let node = SCNNode(geometry: sphere)
-            let scale = min(size.width, size.height) / CGFloat(2 * extent)
-            node.position = SCNVector3(Float((marble.point.x - size.width / 2) / scale / 1000), Float((size.height / 2 - marble.point.y) / scale / 1000), 0.035)
-            scene.rootNode.addChildNode(node)
-        }
         let camera = SCNNode()
         camera.name = "camera"
         camera.camera = SCNCamera()
         camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = extent / 1000 * max(1, Double(size.height / size.width))
         camera.position = SCNVector3(0, 0, 4)
         scene.rootNode.addChildNode(camera)
         let ambient = SCNNode()
@@ -161,7 +142,19 @@ struct MeshMarble {
 }
 
 private struct TransparentBoardScene: UIViewRepresentable {
-    let scene: SCNScene
+    let playerCount: Int
+    let size: CGSize
+    let marbles: [MeshMarble]
+    let palette: [UIColor]
+    let makeScene: () -> SCNScene?
+
+    final class Coordinator {
+        var playerCount: Int?
+        var nodes: [SCNNode] = []
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView(frame: .zero)
         view.backgroundColor = .clear
@@ -172,7 +165,48 @@ private struct TransparentBoardScene: UIViewRepresentable {
         return view
     }
     func updateUIView(_ view: SCNView, context: Context) {
-        view.scene = scene
-        view.pointOfView = scene.rootNode.childNode(withName: "camera", recursively: false)
+        guard size.width > 0, size.height > 0 else { return }
+        let coordinator = context.coordinator
+        if coordinator.playerCount != playerCount {
+            guard let scene = makeScene() else { return }
+            view.scene = scene
+            view.pointOfView = scene.rootNode.childNode(withName: "camera", recursively: false)
+            coordinator.playerCount = playerCount
+            coordinator.nodes.removeAll()
+        }
+        guard let root = view.scene?.rootNode else { return }
+        let extent = 970 / (2 * sin(.pi / Double(playerCount))) + 160
+        let scale = min(size.width, size.height) / CGFloat(2 * extent)
+        SCNTransaction.begin()
+        SCNTransaction.disableActions = true
+        view.pointOfView?.camera?.orthographicScale = extent / 1000 * max(1, Double(size.height / size.width))
+        while coordinator.nodes.count > marbles.count {
+            coordinator.nodes.removeLast().removeFromParentNode()
+        }
+        for (index, marble) in marbles.enumerated() {
+            if index == coordinator.nodes.count {
+                let node = makeMarble()
+                coordinator.nodes.append(node)
+                root.addChildNode(node)
+            }
+            let node = coordinator.nodes[index]
+            node.geometry?.firstMaterial?.diffuse.contents = palette[marble.color % palette.count]
+            node.position = SCNVector3(Float((marble.point.x - size.width / 2) / scale / 1000),
+                                       Float((size.height / 2 - marble.point.y) / scale / 1000), 0.035)
+        }
+        SCNTransaction.commit()
+    }
+
+    private func makeMarble() -> SCNNode {
+        let sphere = SCNSphere(radius: 0.025)
+        sphere.segmentCount = 48
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.roughness.contents = 0.09
+        material.metalness.contents = 0
+        material.clearCoat.contents = 1.0
+        material.clearCoatRoughness.contents = 0.06
+        sphere.materials = [material]
+        return SCNNode(geometry: sphere)
     }
 }
