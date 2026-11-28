@@ -22,9 +22,10 @@ final class HostCoordinator: ObservableObject {
     private var tokens: [UUID: UUID] = [:]
 
     init() {
-        transport.onInvitation = { [weak self] _, admission, reply in
+        transport.onInvitation = { [weak self] peer, admission, reply in
             guard let self, let state = self.state else { reply(false); return }
-            if let token = admission.resumeToken, let id = self.tokens[token], !self.identities.values.contains(id) {
+            if let token = admission.resumeToken, let id = self.tokens[token],
+               self.identities[peer] == id || !self.identities.values.contains(id) {
                 reply(true); return
             }
             guard state.activeSeat == nil, state.members.count < 6 else { reply(false); return }
@@ -94,8 +95,8 @@ final class HostCoordinator: ObservableObject {
                 identities[peer] = id; tokens[token] = id
                 transport.send(SessionReply.identity(player: id, token: token), to: peer)
             case let .resume(token):
-                guard identities[peer] == nil, let id = tokens[token],
-                      !identities.values.contains(id) else { throw HostSessionError.unauthorized }
+                guard let id = tokens[token],
+                      identities[peer] == id || (identities[peer] == nil && !identities.values.contains(id)) else { throw HostSessionError.unauthorized }
                 identities[peer] = id
                 transport.send(SessionReply.identity(player: id, token: token), to: peer)
             default:
@@ -123,8 +124,7 @@ final class HostCoordinator: ObservableObject {
         let snapshot = host.publicState()
         state = snapshot
             if snapshot.presentingMove, presentation == nil {
-                let routes = snapshot.lastMove?.routes ?? []
-                let frames = max(30, routes.reduce(0) { $0 + max(1, $1.count - 1) } * 12)
+                let duration = snapshot.lastMove?.animationDuration ?? 0.24
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.presentation = nil
@@ -132,7 +132,7 @@ final class HostCoordinator: ObservableObject {
                     self.publish()
                 }
                 presentation = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4 + Double(frames) * 0.03, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.35, execute: work)
             }
         if host.botTurn, presentation == nil {
             let work = DispatchWorkItem { [weak self] in

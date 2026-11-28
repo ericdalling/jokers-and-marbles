@@ -25,6 +25,20 @@ public struct PublicMove: Codable, Sendable {
     public let before: [GameMarble]
     public let routes: [[MarblePosition]]
     public let revision: Int
+
+    public var animationDuration: Double {
+        let distance = routes.reduce(0) { $0 + max(1, $1.count - 1) }
+        return max(0.24, Double(distance) * 0.065)
+    }
+
+    public func bumpedMarbles(after: [GameMarble]) -> [Int] {
+        before.indices.filter { index in
+            guard after.indices.contains(index), before[index].position != after[index].position,
+                  !steps.contains(where: { $0.marble == index }),
+                  case .track = before[index].position else { return false }
+            return true
+        }
+    }
 }
 
 public struct PublicSession: Codable, Sendable {

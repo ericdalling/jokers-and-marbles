@@ -10,27 +10,42 @@ final class ControllerSession: ObservableObject {
     @Published var player: UUID?
     @Published var status = ""
     @Published var room = ""
+    @Published private(set) var readyForCommands = false
     private var target: MCPeerID?
     private var token: UUID?
     private var secret: String?
     private var nonce: UUID?
     private var verified = false
     private var retry: DispatchWorkItem?
-    private var retryCount = 0
     private var lastHost: MCPeerID?
     private var discovery: AnyCancellable?
     private var discoveryTimeout: DispatchWorkItem?
-    private func scheduleReconnect() {
-        guard token != nil, retryCount < 5 else { return }
+
+    private func scheduleReconnect(after delay: Double) {
+        guard token != nil else { return }
         retry?.cancel()
-        retryCount += 1
         let work = DispatchWorkItem { [weak self] in
-            guard let self, let peer = self.lastHost else { return }
-            if self.transport.peers.contains(peer) { self.connect(peer) }
-            else { self.scheduleReconnect() }
+            guard let self, self.token != nil, !self.readyForCommands else { return }
+            self.target = nil
+            self.verified = false
+            self.nonce = nil
+            self.transport.browse(code: self.room)
+            self.scheduleReconnect(after: 10)
         }
         retry = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(retryCount * 2), execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    func resumeAfterBackground() {
+        guard let token else { return }
+        readyForCommands = false
+        status = "Reconnecting…"
+        if verified, let target, transport.connected.contains(target) {
+            transport.send(SessionCommand.resume(token), to: target)
+            scheduleReconnect(after: 3)
+        } else {
+            scheduleReconnect(after: 0)
+        }
     }
 
     init() {
@@ -40,37 +55,59 @@ final class ControllerSession: ObservableObject {
         }
         transport.onConnection = { [weak self] peer, connected in
             guard let self, peer == self.target else { return }
-            self.status = connected ? "Connected" : "Disconnected — reconnect to resume"
+            self.readyForCommands = false
+            self.status = connected && self.token == nil ? "Connected" : "Reconnecting…"
+            self.verified = connected && self.secret == nil
+            self.nonce = nil
             if connected {
-                self.retry?.cancel(); self.retryCount = 0
-                self.verified = self.secret == nil
                 if self.secret != nil {
-                    let nonce = UUID(); self.nonce = nonce
+                    let nonce = UUID()
+                    self.nonce = nonce
                     self.transport.send(SessionCommand.challenge(nonce), to: peer)
-                } else if let token = self.token { self.send(.resume(token)) }
+                } else if let token = self.token {
+                    self.transport.send(SessionCommand.resume(token), to: peer)
+                } else {
+                    self.readyForCommands = true
+                }
+                self.scheduleReconnect(after: 5)
+            } else if self.token != nil {
+                self.scheduleReconnect(after: 0.5)
+            } else {
+                self.target = nil
+                self.state = nil
+                self.status = "Disconnected. Connect to the room to try again."
             }
-            if !connected { self.personal = nil; self.state = nil; self.scheduleReconnect() }
         }
         transport.onData = { [weak self] data, peer in
             guard let self, peer == self.target,
+                  self.transport.connected.contains(peer),
                   let reply = try? JSONDecoder().decode(SessionReply.self, from: data) else { return }
             switch reply {
             case let .proof(proof):
                 guard let secret = self.secret, let nonce = self.nonce, proof == RoomProof.make(secret: secret, nonce: nonce) else { self.status = "Host verification failed"; self.transport.stop(); return }
                 self.verified = true; self.nonce = nil
-                if let token = self.token { self.send(.resume(token)) }
+                if let token = self.token { self.transport.send(SessionCommand.resume(token), to: peer) }
+                else { self.readyForCommands = true }
             case let .identity(player, token):
                 guard self.verified else { return }; self.player = player; self.token = token
             case let .state(state, personal):
-                guard self.verified else { return }; self.state = state; self.personal = personal
+                guard self.verified, self.token == nil || personal != nil else { return }
+                self.state = state
+                self.personal = personal
+                self.readyForCommands = true
+                self.status = "Connected"
+                self.retry?.cancel()
+                self.retry = nil
             case let .error(message): self.status = message
             }
         }
     }
     func browse(_ code: String, secret: String? = nil) {
         if room != code || secret != nil { self.secret = secret }
+        if room == code, token != nil { resumeAfterBackground(); return }
         verified = false
-        retry?.cancel(); retryCount = 0
+        readyForCommands = false
+        retry?.cancel()
         if room != code { token = nil; player = nil; lastHost = nil }
         room = code; target = nil; state = nil; personal = nil
         status = "Searching for room…"
@@ -85,19 +122,37 @@ final class ControllerSession: ObservableObject {
     }
     func connect(_ peer: MCPeerID) {
         guard token == nil || lastHost == peer else { status = "Original host required to reconnect"; return }
-        status = "Connecting…"; target = peer; lastHost = peer; transport.connect(peer, secret: secret, token: token)
+        status = token == nil ? "Connecting…" : "Reconnecting…"
+        target = peer
+        lastHost = peer
+        transport.connect(peer, secret: secret, token: token)
     }
     func send(_ command: SessionCommand) {
-        guard verified, let target, transport.connected.contains(target) else { status = "Not connected"; return }
+        guard readyForCommands, verified, let target, transport.connected.contains(target) else { status = "Not connected"; return }
         transport.send(command, to: target)
     }
     func leave() {
-        retry?.cancel(); retryCount = 0; lastHost = nil; secret = nil; verified = false; nonce = nil
-        discoveryTimeout?.cancel(); room = ""; status = ""; transport.stop(); target = nil; token = nil; player = nil; state = nil; personal = nil
+        retry?.cancel()
+        discoveryTimeout?.cancel()
+        target = nil
+        lastHost = nil
+        secret = nil
+        verified = false
+        readyForCommands = false
+        nonce = nil
+        token = nil
+        player = nil
+        state = nil
+        personal = nil
+        room = ""
+        status = ""
+        transport.stop()
     }
 }
 
 struct ControllerLobbyView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var wasBackgrounded = false
     @StateObject private var client = ControllerSession()
     @State private var code = ""
     @State private var name = ""
@@ -111,7 +166,8 @@ struct ControllerLobbyView: View {
         NavigationStack {
             Group {
             if let state = client.state, state.activeSeat != nil, let personal = client.personal, let player = client.player {
-                GameplayControllerView(state: state, personal: personal, player: player) { move in
+                GameplayControllerView(state: state, personal: personal, player: player,
+                                       reconnecting: !client.readyForCommands) { move in
                     client.send(.play(revision: state.revision, move: move))
                 }
             } else {
@@ -212,6 +268,13 @@ struct ControllerLobbyView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $scan) { RoomScanner { value in scan = false; joinURL(value) } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { wasBackgrounded = true }
+                if phase == .active, wasBackgrounded {
+                    wasBackgrounded = false
+                    client.resumeAfterBackground()
+                }
+            }
             .onOpenURL { joinURL($0.absoluteString) }
         }
     }
