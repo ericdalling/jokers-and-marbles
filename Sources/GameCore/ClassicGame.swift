@@ -95,26 +95,13 @@ public struct ClassicGame: Sendable {
             }
         }
     }
-    // Home lane begins five physical track holes before the starting cross.
-    private func homeEntrance(for seat: Int) -> Int {
-        (rules.entry(of: seat) - 5 + rules.trackLength) % rules.trackLength
-    }
     private func step(_ index: Int, distance: Int) -> MarbleStep? {
         let marble = marbles[index]
         var pos = marble.position
         guard distance != 0 else { return nil }
         for n in 1...abs(distance) {
-            switch pos {
-            case .start: return nil
-            case let .home(h):
-                guard distance > 0, h + 1 < rules.marblesPerSeat else { return nil }
-                pos = .home(h + 1)
-            case let .track(t):
-                let next = (t + (distance > 0 ? 1 : -1) + rules.trackLength) % rules.trackLength
-                if distance > 0 && next == homeEntrance(for: marble.seat) {
-                    pos = .home(0)
-                } else { pos = .track(next) }
-            }
+            guard let next = rules.nextPosition(from: pos, seat: marble.seat, forward: distance > 0) else { return nil }
+            pos = next
             if let other = occupant(pos, seat: marble.seat), other != index {
                 if case .home = pos { return nil }
                 if n == abs(distance), marbles[other].seat == marble.seat || !canCapture(other) { return nil }
@@ -200,14 +187,9 @@ public struct ClassicGame: Sendable {
             } else {
                 var position = marble.position
                 for _ in 0..<rules.trackLength {
-                    if position == step.destination { break }
-                    switch position {
-                    case .start: break
-                    case .track(let t):
-                        let next = (t + (backward ? -1 : 1) + rules.trackLength) % rules.trackLength
-                        position = !backward && next == homeEntrance(for: marble.seat) ? .home(0) : .track(next)
-                    case .home(let h): position = .home(h + 1)
-                    }
+                    guard position != step.destination,
+                          let next = rules.nextPosition(from: position, seat: marble.seat, forward: !backward) else { break }
+                    position = next
                     route.append(position)
                 }
                 if route.last != step.destination { route = [marble.position, step.destination] }

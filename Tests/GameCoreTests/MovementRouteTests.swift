@@ -1,5 +1,5 @@
 import Testing
-import GameCore
+@testable import GameCore
 
 @Test func movementRoutesMatchLegalPlays() throws {
     for seed in 1...12 {
@@ -68,4 +68,23 @@ import GameCore
     }
     #expect(foundJoker)
     #expect(foundPass)
+}
+
+@Test(arguments: [3, 4, 5, 6])
+func enteringHomeCountsTheJunctionAndAllFiveHomeHoles(seats: Int) throws {
+    let rules = try GameRules.modular(seats: seats)
+    for seat in 0..<seats {
+        // The cross is at physical hole 7 and the Home junction is at hole 2.
+        let junction = (seat * 17 + 2 - 7 + rules.trackLength) % rules.trackLength
+        let beforeJunction = (junction - 1 + rules.trackLength) % rules.trackLength
+        var position = MarblePosition.track(beforeJunction)
+        for expected in [.track(junction), .home(0), .home(1), .home(2), .home(3), .home(4)] {
+            position = try #require(rules.nextPosition(from: position, seat: seat, forward: true))
+            #expect(position == expected)
+        }
+        #expect(rules.nextPosition(from: position, seat: seat, forward: true) == nil)
+        #expect(rules.nextPosition(from: .track(junction), seat: seat, forward: false) == .track(beforeJunction))
+        let otherSeat = (seat + 1) % seats
+        #expect(rules.nextPosition(from: .track(junction), seat: otherSeat, forward: true) == .track(junction + 1))
+    }
 }
