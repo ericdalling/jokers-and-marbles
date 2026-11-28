@@ -31,7 +31,7 @@ struct GameplayControllerView: View {
                     if let partner = state.members.first(where: { $0.id == member?.partner }) {
                         Text("Teammate: " + partner.name).font(.caption)
                     }
-                    if geo.size.width > 750 {
+                    if geo.size.width > 750 && geo.size.width > geo.size.height {
                         HStack(alignment: .top, spacing: 20) { board.frame(width: geo.size.width * 0.56); controls }
                     } else { board; controls }
                 }.padding(16)
@@ -43,18 +43,29 @@ struct GameplayControllerView: View {
             NavigationStack {
                 List {
                     Section("Cards") {
+                        if state.ruleset == .voorhees {
+                            Text("Ace: enter START, forward 1 or 11, or backward 1")
+                            Text("2–6: forward by rank")
+                            Text("7: forward seven, optionally split")
+                            Text("8: backward eight")
+                            Text("9: forward nine or split nine in opposite directions")
+                            Text("10: split ten between two distinct marbles, in either direction. Opponents may only move on the main track.")
+                            Text("Jack, Queen, King: enter or move forward 11, 12, 13 respectively")
+                            Text("Joker: replace another player's marble; opponents return to START, teammates go to their IN SPOT.")
+                        } else {
                         Text("Ace: enter or move 1")
                         Text("2–6, 9–10: move forward by rank")
                         Text("7: move seven spaces, optionally split between two marbles")
                         Text("8: move backward eight spaces")
                         Text("Jack, Queen, King: enter or move ten")
                         Text("Joker: replace an eligible opposing or teammate marble when no ordinary move is available")
+                        }
                     }
                     Section("Turns") {
                         Text("Play one card, resolve the move, then automatically draw a replacement. If no move is legal, discard a card.")
                         Text("Get all five marbles home. In team games, help your partner finish after your own marbles are home.")
                     }
-                }.navigationTitle("Game rules").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showRules = false } } }
+                }.navigationTitle(state.ruleset.title).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showRules = false } } }
             }
         }
         .onChange(of: state.revision) { _, _ in selectedCard = nil; selectedMarble = nil; selectedMove = nil; submitted = false }
@@ -126,7 +137,8 @@ struct GameplayControllerView: View {
     private func marbleName(_ index: Int) -> String {
         guard state.marbles.indices.contains(index) else { return "Marble" }
         let m = state.marbles[index]
-        return "Marble \(m.number + 1)"
+        let owner = state.seats.indices.contains(m.seat) ? state.members.first { $0.id == state.seats[m.seat] }?.name : nil
+        return (owner ?? "Player") + " • Marble \(m.number + 1)"
     }
     private func description(_ move: GamePlay) -> String {
         if move.steps.isEmpty { return "Discard — no legal move" }
