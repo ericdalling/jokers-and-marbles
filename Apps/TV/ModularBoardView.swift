@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import GameCore
 
-/// Visual-only renderer of the approved SVG. Joinery and game topology are not yet validated.
+/// Renders the modular board with shared geometry for holes, marbles and touch targets.
 struct ModularBoardView: View {
     let playerCount: Int
     var activePlayer: Int = 0
@@ -39,31 +39,18 @@ struct ModularBoardView: View {
             ApprovedMeshBoard(playerCount: playerCount, seatColors: seatColors ?? Array(0..<playerCount), marbles: meshMarbles(size: geo.size, bumped: bumped))
         }
         Canvas { context, size in
-            guard (3...6).contains(playerCount) else { return }
-            let n = Double(playerCount)
-            let extent = 970 / (2 * sin(.pi / n)) + 160
-            let scale = min(size.width, size.height) / CGFloat(2 * extent)
+            guard let layout = ModularBoardLayout(playerCount: playerCount) else { return }
+            let scale = layout.scale(in: size)
             for layer in 0..<2 {
             for seat in 0..<playerCount {
                 var ctx = context
                 ctx.translateBy(x: size.width / 2, y: size.height / 2)
                 ctx.scaleBy(x: scale, y: scale)
-                ctx.rotate(by: .degrees(180 + Double(seat) * 360 / n))
-                ctx.translateBy(x: -634, y: CGFloat(-485 / tan(.pi / n) - 128))
+                ctx.rotate(by: .radians(layout.angle(for: seat)))
+                ctx.translateBy(x: -634, y: -layout.centerY)
                 let outline = Self.outline
                 if layer == 0 {
                 if ApprovedMeshBoard.available { continue }
-                if playerCount < 6 {
-                    // Keep each piece inside its own angular sector; no adjacent piece can cover its holes.
-                    let centerY = CGFloat(485 / tan(.pi / n) + 128)
-                    let slope = CGFloat(tan(.pi / n))
-                    var sector = Path()
-                    sector.move(to: CGPoint(x: 634, y: centerY))
-                    sector.addLine(to: CGPoint(x: 634 - (centerY + 1000) * slope, y: -1000))
-                    sector.addLine(to: CGPoint(x: 634 + (centerY + 1000) * slope, y: -1000))
-                    sector.closeSubpath()
-                    ctx.clip(to: sector)
-                }
                 var edge = ctx
                 edge.translateBy(x: 0, y: 12)
                 edge.fill(outline, with: .color(Color(red: 0.43, green: 0.24, blue: 0.11)))
@@ -260,18 +247,16 @@ struct ModularBoardView: View {
     }
 
     private func screenPoint(_ marble: GameMarble, size: CGSize) -> CGPoint? {
-        guard (3...6).contains(playerCount) else { return nil }
+        guard let layout = ModularBoardLayout(playerCount: playerCount) else { return nil }
         let seat: Int, point: CGPoint
         switch marble.position {
         case .start: seat = marble.seat; guard Self.start.indices.contains(marble.number) else { return nil }; point = Self.start[marble.number]
         case .home(let i): seat = marble.seat; guard Self.home.indices.contains(i) else { return nil }; point = Self.home[i]
         case .track(let i): guard i >= 0 else { return nil }; let mapped = Self.trackPoint(i); seat = mapped.seat % playerCount; point = mapped.point
         }
-        let n = Double(playerCount)
-        let extent = 970 / (2 * sin(.pi / n)) + 160
-        let scale = min(size.width, size.height) / CGFloat(2 * extent)
-        let angle = .pi + Double(seat) * 2 * .pi / n
-        let x = point.x - 634, y = point.y - CGFloat(485 / tan(.pi / n) + 128)
+        let scale = layout.scale(in: size)
+        let angle = layout.angle(for: seat)
+        let x = point.x - 634, y = point.y - layout.centerY
         let c = CGFloat(cos(angle)), s = CGFloat(sin(angle))
         let rotatedX = x * c - y * s
         let rotatedY = x * s + y * c

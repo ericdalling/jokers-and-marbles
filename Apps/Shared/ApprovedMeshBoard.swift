@@ -95,17 +95,16 @@ struct ApprovedMeshBoard: View {
         }
     }
     private func makeScene() -> SCNScene? {
-        guard let asset = Self.asset, (3...6).contains(playerCount) else { return nil }
+        guard let asset = Self.asset, let layout = ModularBoardLayout(playerCount: playerCount) else { return nil }
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
-        let n = Double(playerCount)
         for seat in 0..<playerCount {
             let colorIndex = seatColors.indices.contains(seat) ? seatColors[seat] : seat
             guard let piece = asset.piece(color: palette[colorIndex % palette.count]) else { return nil }
             // Master mesh x=(SVG x-634)/1000, y=(176-SVG y)/1000.
-            piece.position = SCNVector3(0, Float((485 / tan(.pi / n) - 48) / 1000), 0)
+            piece.position = SCNVector3(0, Float((layout.centerY - 176) / 1000), 0)
             let pivot = SCNNode()
-            pivot.eulerAngles.z = Float(-Double.pi - Double(seat) * 2 * Double.pi / n)
+            pivot.eulerAngles.z = Float(-layout.angle(for: seat))
             pivot.addChildNode(piece)
             scene.rootNode.addChildNode(pivot)
         }
@@ -165,7 +164,8 @@ private struct TransparentBoardScene: UIViewRepresentable {
         return view
     }
     func updateUIView(_ view: SCNView, context: Context) {
-        guard size.width > 0, size.height > 0 else { return }
+        guard size.width > 0, size.height > 0,
+              let layout = ModularBoardLayout(playerCount: playerCount) else { return }
         let coordinator = context.coordinator
         if coordinator.playerCount != playerCount {
             guard let scene = makeScene() else { return }
@@ -175,11 +175,10 @@ private struct TransparentBoardScene: UIViewRepresentable {
             coordinator.nodes.removeAll()
         }
         guard let root = view.scene?.rootNode else { return }
-        let extent = 970 / (2 * sin(.pi / Double(playerCount))) + 160
-        let scale = min(size.width, size.height) / CGFloat(2 * extent)
+        let scale = layout.scale(in: size)
         SCNTransaction.begin()
         SCNTransaction.disableActions = true
-        view.pointOfView?.camera?.orthographicScale = extent / 1000 * max(1, Double(size.height / size.width))
+        view.pointOfView?.camera?.orthographicScale = Double(layout.extent) / 1000 * max(1, Double(size.height / size.width))
         while coordinator.nodes.count > marbles.count {
             coordinator.nodes.removeLast().removeFromParentNode()
         }
