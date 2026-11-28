@@ -262,7 +262,7 @@ struct ControllerLobbyView: View {
                     if !client.room.isEmpty { Button("Leave room", role: .destructive) { client.leave() } }
                 }.padding(24).frame(maxWidth: hostMode != nil && client.state == nil ? 1000 : 560)
                 .frame(maxWidth: .infinity)
-            }.background(GameBackdrop())
+            }.background(GameBackdrop(artwork: client.state == nil ? (hostMode == nil ? "iphone-background" : "ipad-background") : nil))
             .preferredColorScheme(.dark).tint(.orange)
             }
             }
