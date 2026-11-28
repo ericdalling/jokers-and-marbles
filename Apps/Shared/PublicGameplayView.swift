@@ -24,7 +24,7 @@ struct PublicGameplayView: View {
     private func badge(_ player: LobbyMember, active: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: player.isBot ? "cpu" : "person.fill")
-            Text(player.name).lineLimit(1).minimumScaleFactor(0.5)
+            Text(player.name).font(.system(.headline, design: .serif)).lineLimit(1).minimumScaleFactor(0.5)
         }.font(.headline).padding(.horizontal, 12).padding(.vertical, 6)
             .background(LinearGradient(colors: [colors[player.color].opacity(0.85), .black], startPoint: .top, endPoint: .bottom), in: Capsule())
             .overlay(Capsule().strokeBorder(colors[player.color], lineWidth: 2))
@@ -42,6 +42,9 @@ struct PublicGameplayView: View {
                         if let player = member(seat), state.individual || seat < state.capacity / 2 {
                             HStack {
                                 JewelMarble(color: colors[player.color]).frame(width: 24, height: 24)
+                                if let partner = state.members.first(where: { $0.id == player.partner }) {
+                                    JewelMarble(color: colors[partner.color]).frame(width: 24, height: 24)
+                                }
                                 Text(player.name + (state.members.first(where: { $0.id == player.partner }).map { " + " + $0.name } ?? "")).font(.caption)
                             }
                         }
@@ -58,24 +61,27 @@ struct PublicGameplayView: View {
                             .padding(28)
                         VStack(spacing: 8) {
                             if state.capacity >= 4 { PremiumLogo().frame(maxWidth: board.size.width * 0.34) }
-                            HStack(spacing: 14) {
+                            HStack(spacing: 20) {
                                 VStack {
-                                    PremiumCardBack().frame(width: 48, height: 68)
+                                    PremiumCardBack().frame(width: 82, height: 116)
+                                        .background { PremiumCardBack().offset(x: -4, y: 4) }
+                                        .shadow(color: .black.opacity(0.7), radius: 5, y: 4)
                                     Text("Draw pile").font(.caption2)
                                 }
                                 VStack {
-                                    if let card = state.discard { PremiumCardView(card: card).frame(width: 48, height: 68) }
-                                    else { RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.5)).frame(width: 48, height: 68).overlay(Text("Empty").font(.caption2)) }
+                                    if let card = state.discard { PremiumCardView(card: card).frame(width: 82, height: 116) }
+                                    else { RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.5)).frame(width: 82, height: 116).overlay(Text("Empty").font(.system(size: 16)).lineLimit(1).minimumScaleFactor(0.5)) }
                                     Text("Discard").font(.caption2)
                                 }
                             }
-                        }.scaleEffect(state.capacity == 3 ? 0.65 : 1)
+                        }.scaleEffect(state.capacity == 3 ? 0.52 : state.capacity == 4 ? 0.78 : 1)
                         ForEach(0..<state.capacity, id: \.self) { seat in
                             if let player = member(seat) {
                                 let angle = Double.pi / 2 + Double(seat) * 2 * Double.pi / Double(state.capacity)
-                                let radius = min(board.size.width, board.size.height) * 0.43
+                                let radius = min(board.size.width, board.size.height) * 0.47
+                                let horizontalRadius = min(board.size.width * 0.48 - 55, radius * 1.18)
                                 badge(player, active: seat == active)
-                                    .position(x: board.size.width / 2 + CGFloat(cos(angle)) * radius, y: board.size.height / 2 + CGFloat(sin(angle)) * radius)
+                                    .position(x: board.size.width / 2 + CGFloat(cos(angle)) * horizontalRadius, y: board.size.height / 2 + CGFloat(sin(angle)) * radius)
                             }
                         }
                     }
