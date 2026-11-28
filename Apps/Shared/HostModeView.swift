@@ -12,21 +12,20 @@ struct HostModeView: View {
         GeometryReader { geometry in
         ScrollView {
             VStack(spacing: 14) {
-                PremiumLogo().frame(maxWidth: 620)
-                if host.state?.activeSeat == nil { Text("Host Mode").font(.headline) }
+                if host.state?.activeSeat == nil {
+                    PremiumLogo().frame(maxWidth: 620)
+                    Text("Host Mode").font(.headline)
+                }
                 if let state = host.state {
                     if state.activeSeat != nil {
                         PublicGameplayView(state: state, connected: host.connectedPlayers)
-                            .frame(height: max(220, geometry.size.height - 180))
+                            .frame(height: max(220, geometry.size.height - 100))
 
                     } else {
                         HStack(alignment: .top, spacing: 28) {
                             VStack(spacing: 12) {
                                 Text("Join Game").font(.system(.title2, design: .serif))
-                                if let image = qr(host.roomCode) {
-                                    Image(decorative: image, scale: 1).interpolation(.none).resizable()
-                                        .frame(width: 180, height: 180).padding(12).background(.white, in: RoundedRectangle(cornerRadius: 12))
-                                }
+                                roomQRCode(size: 180, padding: 12)
                                 Text("Scan with your phone")
                                 Text(host.roomCode).font(.system(.headline, design: .monospaced))
                             }
@@ -81,6 +80,26 @@ struct HostModeView: View {
             }.padding(20).frame(maxWidth: .infinity)
         }.defaultScrollAnchor(.top)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if host.state?.activeSeat != nil {
+                HStack(spacing: 16) {
+                    #if os(tvOS)
+                    roomQRCode(size: 116, padding: 8)
+                    #else
+                    roomQRCode(size: 96, padding: 8)
+                    #endif
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Room code").font(.subheadline)
+                        Text(host.roomCode).font(.system(.title2, design: .monospaced).bold())
+                            .accessibilityLabel(host.roomCode.map(String.init).joined(separator: " "))
+                        Text("Scan to reconnect").font(.caption)
+                    }
+                }
+                .modifier(PremiumPanel())
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+            }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundStyle(Color(red: 0.98, green: 0.88, blue: 0.72))
         .background(GameBackdrop().ignoresSafeArea())
@@ -99,6 +118,18 @@ struct HostModeView: View {
         } message: { Text("Approve only when someone you know is joining your room.") }
         .onAppear { if host.state == nil { host.open() } }
         .onDisappear { host.close() }
+    }
+
+    @ViewBuilder
+    private func roomQRCode(size: CGFloat, padding: CGFloat) -> some View {
+        if let image = qr(host.roomCode) {
+            Image(decorative: image, scale: 1)
+                .interpolation(.none)
+                .resizable()
+                .frame(width: size, height: size)
+                .padding(padding)
+                .background(.white, in: RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     private func qr(_ code: String) -> CGImage? {
