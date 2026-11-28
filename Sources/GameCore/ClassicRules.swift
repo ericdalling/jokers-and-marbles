@@ -29,6 +29,10 @@ public struct GameRules: Codable, Equatable, Sendable {
     public var trackLength: Int { seats * spacesPerSeat }
     public func team(of seat: Int) -> Int { seat % teamCount }
     public func entry(of seat: Int) -> Int { seat * spacesPerSeat }
+    func homeJunction(for seat: Int) -> Int {
+        (entry(of: seat) - 5 + trackLength) % trackLength
+    }
+
     func nextPosition(from position: MarblePosition, seat: Int, forward: Bool) -> MarblePosition? {
         switch position {
         case .start:
@@ -37,8 +41,7 @@ public struct GameRules: Codable, Equatable, Sendable {
             return forward && index + 1 < marblesPerSeat ? .home(index + 1) : nil
         case .track(let index):
             // Count the track hole beside the Home lane before turning into its first hole.
-            let junction = (entry(of: seat) - 5 + trackLength) % trackLength
-            if forward && index == junction { return .home(0) }
+            if forward && index == homeJunction(for: seat) { return .home(0) }
             return .track((index + (forward ? 1 : -1) + trackLength) % trackLength)
         }
     }

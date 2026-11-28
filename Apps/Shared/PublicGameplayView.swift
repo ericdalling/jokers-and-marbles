@@ -97,7 +97,7 @@ struct PublicGameplayView: View {
                             ForEach(move.bumpedMarbles(after: state.marbles), id: \.self) { index in
                                 let marble = state.marbles[index]
                                 let name = member(marble.seat)?.name ?? "Player"
-                                Label(marble.position == .start ? "\(name): sent back to Start" : "\(name): bumped into Home",
+                                Label("\(name): bumped to " + marble.position.bumpDestinationLabel,
                                       systemImage: "arrow.uturn.backward.circle.fill")
                                     .font(.caption).foregroundStyle(.yellow)
                             }
@@ -118,6 +118,16 @@ struct PublicGameplayView: View {
             withAnimation(.easeOut(duration: 0.35)) { drawing = true }
             try? await Task.sleep(for: .milliseconds(450))
             withAnimation(.easeIn(duration: 0.25)) { drawing = false }
+        }
+    }
+}
+
+extension MarblePosition {
+    var bumpDestinationLabel: String {
+        switch self {
+        case .start: "Start"
+        case .home: "Home"
+        case .track: "In Spot"
         }
     }
 }

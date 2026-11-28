@@ -1,3 +1,7 @@
+public enum Ruleset: String, Codable, CaseIterable, Sendable {
+    case classic, voorhees
+    public var title: String { self == .classic ? "Classic Rules" : "Voorhees House Rules" }
+}
 public enum MarblePosition: Codable, Hashable, Sendable {
     case start, track(Int), home(Int)
 }
@@ -35,6 +39,7 @@ private struct SeededRandom: RandomNumberGenerator {
 }
 public struct ClassicGame: Sendable {
     public let rules: GameRules
+    public let ruleset: Ruleset
     public private(set) var marbles: [GameMarble]
     public private(set) var activeSeat = 0
     public private(set) var winner: Int?
@@ -43,11 +48,12 @@ public struct ClassicGame: Sendable {
     private var discard: [PlayingCard] = []
     private var random: SeededRandom
 
-    public init(rules: GameRules = .classic, seed: UInt64) throws {
+    public init(rules: GameRules = .classic, seed: UInt64, ruleset: Ruleset = .classic) throws {
         guard rules.seats > 1, rules.teamCount > 0, rules.seats % rules.teamCount == 0,
               rules.marblesPerSeat > 0, rules.spacesPerSeat > 10, rules.handSize > 0,
               rules.deck.cardCount > rules.seats * rules.handSize else { throw ClassicGameError.invalidRules }
         self.rules = rules
+        self.ruleset = ruleset
         marbles = (0..<rules.seats).flatMap { seat in
             (0..<rules.marblesPerSeat).map { GameMarble(seat: seat, number: $0, position: .start) }
         }
@@ -109,15 +115,21 @@ public struct ClassicGame: Sendable {
         }
         return MarbleStep(marble: index, destination: pos)
     }
+    private func teammateBumpDestination(for seat: Int) -> MarblePosition {
+        ruleset == .voorhees ? .track(rules.homeJunction(for: seat)) : .home(0)
+    }
+
     private func canCapture(_ index: Int) -> Bool {
         let target = marbles[index]
         if rules.team(of: target.seat) != rules.team(of: activeSeat) { return true }
-        return occupant(.home(0), seat: target.seat) == nil
+        return occupant(teammateBumpDestination(for: target.seat), seat: target.seat) == nil
     }
     private mutating func apply(_ step: MarbleStep) {
         let seat = marbles[step.marble].seat
         if let other = occupant(step.destination, seat: seat), other != step.marble {
-            marbles[other].position = rules.team(of: marbles[other].seat) == rules.team(of: seat) ? .home(0) : .start
+            let targetSeat = marbles[other].seat
+            let movingTeam = rules.team(of: ruleset == .voorhees ? activeSeat : seat)
+            marbles[other].position = rules.team(of: targetSeat) == movingTeam ? teammateBumpDestination(for: targetSeat) : .start
         }
         marbles[step.marble].position = step.destination
     }
@@ -131,6 +143,48 @@ public struct ClassicGame: Sendable {
         for (cardIndex, card) in hands[activeSeat].enumerated() {
             guard let power = rules.power(of: card) else { continue }
             var options: [[MarbleStep]] = []
+            if ruleset == .voorhees, case .standard(let rank, _) = card {
+                let value = rank.rawValue
+                if [1, 9, 10, 11, 12, 13].contains(value) {
+                    if value == 1 || value >= 11 {
+                        for distance in (value == 1 ? [1, -1, 11] : [value]) {
+                            options += singleSteps(distance: distance, seat: seat).map { [$0] }
+                        }
+                        let entry = MarblePosition.track(rules.entry(of: seat))
+                        if let index = marbles.firstIndex(where: { $0.seat == seat && $0.position == .start }),
+                           occupant(entry, seat: seat).map({ marbles[$0].seat != seat && canCapture($0) }) ?? true {
+                            options.append([MarbleStep(marble: index, destination: entry)])
+                        }
+                    } else {
+                        if value == 9 { options += singleSteps(distance: 9, seat: seat).map { [$0] } }
+                        func candidates(_ game: ClassicGame, _ distance: Int) -> [MarbleStep] {
+                            game.marbles.indices.compactMap { i in
+                                let m = game.marbles[i]
+                                if value == 9 && m.seat != seat { return nil }
+                                let opponent = rules.team(of: m.seat) != rules.team(of: activeSeat)
+                                if opponent, case .track = m.position {} else if opponent { return nil }
+                                guard let move = game.step(i, distance: distance) else { return nil }
+                                if opponent, case .track = move.destination {} else if opponent { return nil }
+                                return move
+                            }
+                        }
+                        for first in 1..<value {
+                            for sign in [-1, 1] {
+                                for a in candidates(self, first * sign) {
+                                    var copy = self; copy.apply(a)
+                                    for secondSign in (value == 9 ? [-sign] : [-1, 1]) {
+                                        for b in candidates(copy, (value-first)*secondSign) where a.marble != b.marble {
+                                            options.append([a,b])
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    plays += options.map { GamePlay(cardIndex: cardIndex, steps: $0) }
+                    continue
+                }
+            }
             switch power {
             case let .forward(n): options = singleSteps(distance: n, seat: seat).map { [$0] }
             case let .backward(n): options = singleSteps(distance: -n, seat: seat).map { [$0] }
@@ -176,23 +230,26 @@ public struct ClassicGame: Sendable {
         guard legalPlays().contains(play) else { return [] }
         var copy = self
         let card = hands[activeSeat][play.cardIndex]
-        let backward: Bool
-        if case .backward = rules.power(of: card) { backward = true } else { backward = false }
         var routes: [[MarblePosition]] = []
         for step in play.steps {
             let marble = copy.marbles[step.marble]
-            var route = [marble.position]
+            let route: [MarblePosition]
             if marble.position == .start || card == .joker {
-                route.append(step.destination)
+                route = [marble.position, step.destination]
             } else {
-                var position = marble.position
-                for _ in 0..<rules.trackLength {
-                    guard position != step.destination,
-                          let next = rules.nextPosition(from: position, seat: marble.seat, forward: !backward) else { break }
-                    position = next
-                    route.append(position)
+                // Legal moves cover at most 13 holes, less than half the shortest track.
+                let candidates = [true, false].compactMap { forward -> [MarblePosition]? in
+                    var position = marble.position
+                    var path = [position]
+                    for _ in 0..<13 {
+                        guard let next = rules.nextPosition(from: position, seat: marble.seat, forward: forward) else { break }
+                        position = next
+                        path.append(next)
+                        if next == step.destination { return path }
+                    }
+                    return nil
                 }
-                if route.last != step.destination { route = [marble.position, step.destination] }
+                route = candidates.min { $0.count < $1.count } ?? [marble.position, step.destination]
             }
             routes.append(route)
             copy.apply(step)

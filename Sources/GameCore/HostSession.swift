@@ -42,6 +42,7 @@ public struct PublicMove: Codable, Sendable {
 }
 
 public struct PublicSession: Codable, Sendable {
+    public var ruleset: Ruleset = .classic
     public let capacity: Int
     public let individual: Bool
     public let members: [LobbyMember]
@@ -64,6 +65,13 @@ public struct PrivateSession: Codable, Sendable {
 }
 
 public struct HostSession: Sendable {
+    public private(set) var ruleset: Ruleset = .classic
+    public mutating func configureRuleset(_ value: Ruleset) throws {
+        guard game == nil else { throw HostSessionError.alreadyStarted }
+        ruleset = value
+        for i in members.indices { members[i].ready = false }
+        revision += 1
+    }
     public private(set) var capacity: Int
     public private(set) var individual: Bool
     private var flexible = false
@@ -180,13 +188,13 @@ public struct HostSession: Sendable {
             order = first + second
         }
         let rules = try GameRules.modular(seats: capacity, individual: individual)
-        game = try ClassicGame(rules: rules, seed: seed)
+        game = try ClassicGame(rules: rules, seed: seed, ruleset: ruleset)
         seats = order
         revision += 1
     }
 
     public func publicState() -> PublicSession {
-        PublicSession(capacity: capacity, individual: individual, members: members, invitations: invitations,
+        PublicSession(ruleset: ruleset, capacity: capacity, individual: individual, members: members, invitations: invitations,
                       seats: seats, activeSeat: game?.activeSeat, marbles: game?.marbles ?? [],
                       drawCount: game?.drawCount, discard: game?.topDiscard, winner: game?.winner, revision: revision, lastMove: lastMove, presentingMove: presentingMove)
     }
