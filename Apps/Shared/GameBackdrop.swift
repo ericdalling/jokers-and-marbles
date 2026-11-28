@@ -2,9 +2,15 @@ import SwiftUI
 import UIKit
 
 struct GameBackdrop: View {
+    var artwork: String? = nil
     var body: some View {
         Group {
-        if let url = Bundle.main.url(forResource: "walnut", withExtension: "jpg"), let image = UIImage(contentsOfFile: url.path) {
+        if let artwork, let url = Bundle.main.url(forResource: artwork, withExtension: "jpg"), let image = UIImage(contentsOfFile: url.path) {
+            GeometryReader { geo in
+                Image(uiImage: image).resizable().scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height).clipped()
+            }
+        } else if let url = Bundle.main.url(forResource: "walnut", withExtension: "jpg"), let image = UIImage(contentsOfFile: url.path) {
             GeometryReader { geo in
                 Image(uiImage: image.resizableImage(withCapInsets: .zero, resizingMode: .tile))
                     .resizable(resizingMode: .tile)
