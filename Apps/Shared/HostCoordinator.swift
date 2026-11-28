@@ -55,6 +55,10 @@ final class HostCoordinator: ObservableObject {
         } catch { self.error = String(describing: error) }
     }
 
+    func configureRuleset(_ value: Ruleset) {
+        do { try host?.configureRuleset(value); publish() } catch { self.error = String(describing: error) }
+    }
+
     func configureTeams(_ enabled: Bool) {
         do { try host?.configureTeams(enabled); publish() } catch { self.error = String(describing: error) }
     }
