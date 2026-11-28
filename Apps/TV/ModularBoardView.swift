@@ -19,7 +19,9 @@ struct ModularBoardView: View {
     @State private var progress: CGFloat = 1
     @State private var animatedRevision: Int?
     private var moveProgress: CGFloat {
-        animatedRevision == lastMove?.revision ? progress : 1
+        guard !reduceMotion, let move = lastMove, !move.steps.isEmpty else { return 1 }
+        if animatedRevision == move.revision { return progress }
+        return presentingMove ? 0 : 1
     }
     private func color(for seat: Int) -> Color {
         let index = seatColors.flatMap { $0.indices.contains(seat) ? $0[seat] : nil } ?? seat
@@ -197,8 +199,8 @@ struct ModularBoardView: View {
         .task(id: lastMove?.revision) {
             guard let move = lastMove, animatedRevision != move.revision, presentingMove,
                   !reduceMotion, !move.steps.isEmpty else { return }
-            animatedRevision = move.revision
             progress = 0
+            animatedRevision = move.revision
             let clock = ContinuousClock()
             let start = clock.now
             while !Task.isCancelled {
