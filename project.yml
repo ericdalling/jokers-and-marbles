@@ -19,6 +19,7 @@ targets:
           mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           cp "$SRCROOT/Assets/Approved/Materials/"*.jpg "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
           cp "$SRCROOT/Assets/Approved/Models/master-piece.glb" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
+          python3 "$SRCROOT/scripts/prepare-branding.py" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
         basedOnDependencyAnalysis: false
     dependencies:
       - package: GameCore
@@ -56,6 +57,7 @@ targets:
           mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           cp "$SRCROOT/Assets/Approved/Materials/"*.jpg "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
           cp "$SRCROOT/Assets/Approved/Models/master-piece.glb" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
+          python3 "$SRCROOT/scripts/prepare-branding.py" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
         basedOnDependencyAnalysis: false
     dependencies:
       - package: GameCore
