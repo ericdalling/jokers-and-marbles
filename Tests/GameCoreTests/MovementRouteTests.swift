@@ -78,7 +78,8 @@ func enteringHomeCountsTheJunctionAndAllFiveHomeHoles(seats: Int) throws {
         let junction = (seat * 17 + 2 - 7 + rules.trackLength) % rules.trackLength
         let beforeJunction = (junction - 1 + rules.trackLength) % rules.trackLength
         var position = MarblePosition.track(beforeJunction)
-        for expected in [.track(junction), .home(0), .home(1), .home(2), .home(3), .home(4)] {
+        let expectedRoute: [MarblePosition] = [.track(junction), .home(0), .home(1), .home(2), .home(3), .home(4)]
+        for expected in expectedRoute {
             position = try #require(rules.nextPosition(from: position, seat: seat, forward: true))
             #expect(position == expected)
         }
