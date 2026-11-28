@@ -10,14 +10,47 @@ struct GameplayControllerView: View {
     @State private var selectedCard: Int?
     @State private var selectedMarble: Int?
     @State private var selectedMove: GamePlay?
+    @State private var selectedDestination: MarbleStep?
     @State private var zoom: CGFloat = 1
     @State private var submitted = false
     @State private var replacementGlow = false
     @State private var showRules = false
     private var active: Bool { !reconnecting && personal.seat == state.activeSeat && state.winner == nil && !state.presentingMove }
     private var member: LobbyMember? { state.members.first { $0.id == player } }
-    private var options: [GamePlay] { personal.legalPlays.filter { $0.cardIndex == selectedCard } }
-    private var filtered: [GamePlay] { options.filter { selectedMarble == nil || $0.steps.first?.marble == selectedMarble } }
+    private var cardPlays: [GamePlay] {
+        personal.legalPlays.filter { selectedCard == nil || $0.cardIndex == selectedCard }
+    }
+    private var selectableMarbles: [Int] {
+        Array(Set(cardPlays.flatMap { $0.steps.map(\.marble) })).sorted()
+    }
+    private var destinations: [MarbleStep] {
+        guard let selectedMarble else { return [] }
+        return Array(Set(cardPlays.flatMap { $0.steps.filter { $0.marble == selectedMarble } }))
+    }
+    private var marblePlays: [GamePlay] {
+        personal.legalPlays.filter { play in
+            if let selectedDestination { return play.steps.contains(selectedDestination) }
+            if let selectedMarble { return play.steps.contains { $0.marble == selectedMarble } }
+            return true
+        }
+    }
+    private var filtered: [GamePlay] {
+        marblePlays.filter { $0.cardIndex == selectedCard }
+    }
+    private func selectMarble(_ index: Int?) {
+        selectedMarble = index
+        selectedDestination = nil
+        selectedMove = nil
+    }
+    private func selectDestination(_ step: MarbleStep) {
+        selectedDestination = step
+        let matches = cardPlays.filter { $0.steps.contains(step) }
+        selectedMove = nil
+        if matches.count == 1, let move = matches.first {
+            selectedCard = move.cardIndex
+            selectedMove = move
+        }
+    }
     private var turnName: String {
         guard let seat = state.activeSeat, state.seats.indices.contains(seat) else { return "Player" }
         return state.members.first { $0.id == state.seats[seat] }?.name ?? "Player"
@@ -71,7 +104,11 @@ struct GameplayControllerView: View {
         .onChange(of: reconnecting) { _, value in
             if value { submitted = false }
         }
-        .onChange(of: state.revision) { _, _ in selectedCard = nil; selectedMarble = nil; selectedMove = nil; submitted = false }
+        .onChange(of: state.revision) { _, _ in
+            selectedCard = nil
+            selectMarble(nil)
+            submitted = false
+        }
         .task(id: state.revision) {
             guard !state.presentingMove, let move = state.lastMove, move.seat == personal.seat, state.winner == nil else { return }
             replacementGlow = true
@@ -82,14 +119,12 @@ struct GameplayControllerView: View {
     private var board: some View {
         ModularBoardView(playerCount: state.capacity, activePlayer: state.activeSeat ?? 0, gameMarbles: state.marbles,
                          seatColors: state.seats.map { id in state.members.first { $0.id == id }?.color ?? 0 },
-                         selectableMarbles: active && !submitted ? Array(Set(options.compactMap { $0.steps.first?.marble })) : [],
+                         selectableMarbles: active && !submitted ? selectableMarbles : [],
                          selectedMarble: selectedMarble,
-                         onMarble: { selectedMarble = $0; selectedMove = nil },
-                         destinations: !active || selectedMarble == nil || submitted ? [] : Array(Set(filtered.compactMap { $0.steps.first })),
-                         onDestination: { step in
-                             let matches = filtered.filter { $0.steps.first == step }
-                             if matches.count == 1 { selectedMove = matches.first }
-                         }, lastMove: state.lastMove, presentingMove: state.presentingMove)
+                         onMarble: { selectMarble($0) },
+                         destinations: active && !submitted ? destinations : [],
+                         onDestination: selectDestination,
+                         lastMove: state.lastMove, presentingMove: state.presentingMove)
             .aspectRatio(1, contentMode: .fit)
             .scaleEffect(zoom).clipped()
             .gesture(MagnifyGesture().onChanged { zoom = min(2.5, max(1, $0.magnification)) })
@@ -100,30 +135,49 @@ struct GameplayControllerView: View {
             Text("Your private hand").font(.headline)
             HStack(spacing: 5) {
                 ForEach(Array(personal.hand.enumerated()), id: \.offset) { index, card in
+                    let playable = marblePlays.contains { $0.cardIndex == index }
+                    let highlighted = active && !submitted && selectedMarble != nil && playable
                     Button {
-                        selectedCard = index; selectedMarble = nil; selectedMove = nil
+                        selectedCard = index
+                        selectedMove = nil
                     } label: {
                         PremiumCardView(card: card).frame(maxWidth: .infinity).frame(height: 82)
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? .orange : .brown, lineWidth: selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? 4 : 1))
-                    }.buttonStyle(.plain).disabled(!active || submitted || !personal.legalPlays.contains { $0.cardIndex == index })
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? .orange : highlighted ? .yellow : .brown, lineWidth: selectedCard == index || (replacementGlow && index == personal.hand.count - 1) ? 4 : 1))
+                    }.buttonStyle(.plain)
+                        .opacity(active && !playable ? 0.45 : 1)
+                        .disabled(!active || submitted || !playable)
                 }
             }
             if active && !submitted {
-                if selectedCard == nil { Text("Choose a playable card") }
-                else {
-                    let marbles = Array(Set(options.compactMap { $0.steps.first?.marble })).sorted()
-                    if !marbles.isEmpty {
+                if let selectedMarble {
+                    HStack {
+                        Text(marbleName(selectedMarble)).font(.headline)
+                        Spacer()
+                        Button("Clear selection") {
+                            selectedCard = nil
+                            selectMarble(nil)
+                        }.buttonStyle(.bordered)
+                    }
+                }
+                if selectedCard == nil {
+                    if selectedMarble != nil {
+                        Text(selectedDestination == nil ? "Choose a highlighted card or destination" : "Choose a highlighted card for this destination")
+                    } else {
+                        Text(selectableMarbles.isEmpty ? "Choose a card to discard" : "Tap a marble or choose a playable card")
+                    }
+                } else {
+                    if !selectableMarbles.isEmpty && selectedMarble == nil {
                         Text("Choose a marble").font(.headline)
                         ScrollView(.horizontal) {
                             HStack {
-                                ForEach(marbles, id: \.self) { index in
-                                    Button(marbleName(index)) { selectedMarble = index; selectedMove = nil }
-                                        .buttonStyle(.borderedProminent).tint(selectedMarble == index ? .orange : .brown)
+                                ForEach(selectableMarbles, id: \.self) { index in
+                                    Button(marbleName(index)) { selectMarble(index) }
+                                        .buttonStyle(.borderedProminent).tint(.brown)
                                 }
                             }
                         }
                     }
-                    if selectedMarble != nil || marbles.isEmpty {
+                    if selectedMarble != nil || selectableMarbles.isEmpty {
                         Text("Choose destination").font(.headline)
                         ForEach(filtered, id: \.self) { move in
                             Button(description(move)) { selectedMove = move }
